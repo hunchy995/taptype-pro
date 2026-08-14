@@ -1,0 +1,10 @@
+<resources>
+    <color name="cream">#FAF9F6</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_primary">#1C1C1E</color>
+    <color name="text_secondary">#6C6C70</color>
+    <color name="clay">#E55B2B</color>
+    <color name="clay_container">#FDEAE4</color>
+    <color name="border">#E5E5EA</color>
+    <color name="recording_red">#FF3B30</color>
+</resources>

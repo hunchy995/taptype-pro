@@ -1,0 +1,18 @@
+<resources>
+    <style name="Theme.TapTypePro" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/clay</item>
+        <item name="colorPrimaryContainer">@color/clay_container</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:colorBackground">@color/cream</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="android:statusBarColor">@color/cream</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardCornerRadius">16dp</item>
+        <item name="cardElevation">2dp</item>
+        <item name="contentPadding">16dp</item>
+    </style>
+</resources>

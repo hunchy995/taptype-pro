@@ -1,0 +1,5 @@
+<resources>
+    <dimen name="orb_size">56dp</dimen>
+    <dimen name="margin_standard">16dp</dimen>
+    <dimen name="corner_radius">16dp</dimen>
+</resources>
