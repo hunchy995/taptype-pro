@@ -1,4 +1,0 @@
-/opt/data/taptype-pro/app/src/main/cpp/CMakeLists.txt
-/opt/data/whisper.cpp/ggml/CMakeLists.txt
-/opt/data/whisper.cpp/ggml/src/CMakeLists.txt
-/opt/data/whisper.cpp/ggml/src/ggml-cpu/CMakeLists.txt

@@ -21,7 +21,7 @@
         android:id="@+id/activeEngineLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Engine: Parakeet"
+        android:text="Engine: Whisper"
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
         android:layout_marginBottom="2dp" />
@@ -34,6 +34,18 @@
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
         android:layout_marginBottom="16dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/switchEngineBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:text="Switch Engine"
+        android:textColor="@color/clay"
+        app:cornerRadius="12dp"
+        android:backgroundTint="@color/white"
+        app:strokeColor="@color/border"
+        app:strokeWidth="1dp" />
 
     <com.google.android.material.card.MaterialCardView
         style="@style/Card"

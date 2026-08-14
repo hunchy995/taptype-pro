@@ -15,7 +15,7 @@ object Settings {
         }
     }
 
-    fun activeEngine(): String = SecurePrefs.getString(KEY_ACTIVE_ENGINE, EngineType.PARAKEET.name)
+    fun activeEngine(): String = SecurePrefs.getString(KEY_ACTIVE_ENGINE, EngineType.WHISPER.name)
     fun setActiveEngine(engine: String) = SecurePrefs.putString(KEY_ACTIVE_ENGINE, engine)
 
     fun activeModel(engine: String): String = SecurePrefs.getString("active_model_$engine", "")

@@ -3,8 +3,10 @@ package com.taptype.taptypepro.engine
 import java.io.File
 
 object ModelRegistry {
-    // Base URL for model files. Replace with https://models.aziz.me later.
-    const val MODEL_BASE_URL = "https://github.com/hunchy995/taptype-pro/releases/download/v1.0.0"
+    // Models are downloaded directly from Hugging Face (works on your network).
+    // Point this to models.aziz.me later when the CDN is ready.
+    const val WHISPER_BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
+    const val PARAKEET_BASE_URL = "https://huggingface.co/istupakov/parakeet-ctc-0.6b-onnx/resolve/main"
 
     data class Model(
         val id: String,
@@ -12,10 +14,11 @@ object ModelRegistry {
         val name: String,
         val sizeMB: Long,
         val description: String,
-        val filename: String
+        val filename: String,
+        val hfUrl: String
     ) {
         val url: String
-            get() = "$MODEL_BASE_URL/$filename"
+            get() = hfUrl
     }
 
     val models = listOf(
@@ -26,23 +29,36 @@ object ModelRegistry {
             name = "Whisper Tiny EN Q8_0",
             sizeMB = 42,
             description = "Fastest Whisper, great for quick dictation",
-            filename = "ggml-tiny.en-q8_0.bin"
+            filename = "ggml-tiny.en-q8_0.bin",
+            hfUrl = "$WHISPER_BASE_URL/ggml-tiny.en-q8_0.bin"
         ),
         Model(
             id = "base.en-q5_1",
             engine = EngineType.WHISPER,
             name = "Whisper Base EN Q5_1",
-            sizeMB = 60,
+            sizeMB = 57,
             description = "Balanced Whisper, better punctuation",
-            filename = "ggml-base.en-q5_1.bin"
+            filename = "ggml-base.en-q5_1.bin",
+            hfUrl = "$WHISPER_BASE_URL/ggml-base.en-q5_1.bin"
         ),
         Model(
             id = "small.en-q5_1",
             engine = EngineType.WHISPER,
             name = "Whisper Small EN Q5_1",
-            sizeMB = 190,
+            sizeMB = 182,
             description = "Best Whisper accuracy, slower",
-            filename = "ggml-small.en-q5_1.bin"
+            filename = "ggml-small.en-q5_1.bin",
+            hfUrl = "$WHISPER_BASE_URL/ggml-small.en-q5_1.bin"
+        ),
+        // Parakeet placeholder — still needs proper preprocessing code
+        Model(
+            id = "parakeet-0.6b",
+            engine = EngineType.PARAKEET,
+            name = "Parakeet 0.6b ONNX",
+            sizeMB = 240,
+            description = "Coming soon — transcription not yet implemented",
+            filename = "model.onnx",
+            hfUrl = "$PARAKEET_BASE_URL/model.onnx"
         )
     )
 

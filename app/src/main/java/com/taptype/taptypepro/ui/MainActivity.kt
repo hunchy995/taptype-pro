@@ -37,6 +37,8 @@ class MainActivity : AppCompatActivity() {
         binding.viewHistoryBtn.setOnClickListener { startActivity(Intent(this, HistoryActivity::class.java)) }
         binding.viewDebugBtn.setOnClickListener { startActivity(Intent(this, DebugLogActivity::class.java)) }
 
+        binding.switchEngineBtn.setOnClickListener { showEngineSwitcher() }
+
         adapter = ModelAdapter(emptyList()) { state, action ->
             when (action) {
                 "download" -> downloadModel(state)
@@ -126,6 +128,23 @@ class MainActivity : AppCompatActivity() {
                 ModelRegistry.modelFile(this, state.model).delete()
                 state.status = ModelAdapter.Status.NOT_INSTALLED
                 adapter.notifyItemChanged(adapter.models.indexOf(state))
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showEngineSwitcher() {
+        val engines = EngineType.entries.map { it.name.lowercase().replaceFirstChar { ch -> ch.uppercase() } }.toTypedArray()
+        val current = Settings.activeEngine()
+        val currentIndex = EngineType.entries.indexOfFirst { it.name == current }.coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle("Choose Engine")
+            .setSingleChoiceItems(engines, currentIndex) { dialog, which ->
+                val chosen = EngineType.entries[which]
+                Settings.setActiveEngine(chosen.name)
+                EngineManager.release()
+                refreshUi()
+                dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
             .show()
