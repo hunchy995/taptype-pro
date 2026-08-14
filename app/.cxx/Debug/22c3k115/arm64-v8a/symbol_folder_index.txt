@@ -1,0 +1,1 @@
+/opt/data/taptype-pro/app/build/intermediates/cxx/Debug/22c3k115/obj/arm64-v8a

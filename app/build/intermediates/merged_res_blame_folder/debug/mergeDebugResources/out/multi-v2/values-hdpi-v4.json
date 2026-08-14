@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.taptype.taptypepro.app-mergeDebugResources-39:/values-hdpi-v4/values-hdpi-v4.xml",
+            "map": [
+                {
+                    "source": "/opt/data/.gradle/caches/transforms-4/c99e60a490c3ca10ab4b2e9341d42533/transformed/appcompat-1.7.0/res/values-hdpi-v4/values-hdpi-v4.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "6",
+                        "endColumns": "13",
+                        "endOffsets": "327"
+                    }
+                }
+            ]
+        }
+    ]
+}

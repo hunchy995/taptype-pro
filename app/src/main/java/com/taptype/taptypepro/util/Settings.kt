@@ -11,7 +11,7 @@ object Settings {
     fun init(context: Context) {
         SecurePrefs.init(context)
         if (activeEngine().isBlank()) {
-            setActiveEngine(EngineType.PARAKEET.name)
+            setActiveEngine(EngineType.WHISPER.name)
         }
     }
 

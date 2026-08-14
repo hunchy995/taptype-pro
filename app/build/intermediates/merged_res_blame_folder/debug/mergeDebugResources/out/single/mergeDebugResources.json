@@ -1,0 +1,54 @@
+[
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_activity_debug_log.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/activity_debug_log.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_item_model.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/item_model.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/drawable_ic_mic.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/drawable/ic_mic.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_activity_history.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/activity_history.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_item_history.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/item_history.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/xml_preferences.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/xml/preferences.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_activity_main.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/drawable_orb_ring.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/drawable/orb_ring.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/layout_floating_orb.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/layout/floating_orb.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/drawable_orb_background.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/drawable/orb_background.xml"
+    },
+    {
+        "merged": "com.taptype.taptypepro.app-debug-41:/xml_accessibility_service_config.xml.flat",
+        "source": "com.taptype.taptypepro.app-main-43:/xml/accessibility_service_config.xml"
+    }
+]

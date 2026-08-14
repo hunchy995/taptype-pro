@@ -1,13 +1,15 @@
 package com.taptype.taptypepro.ui
 
 import android.content.Context
-import android.content.pm.PackageManager
 import com.taptype.taptypepro.engine.ModelRegistry
 import com.taptype.taptypepro.util.DebugLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 
 object ModelDownloader {
     private const val TAG = "ModelDownloader"
@@ -17,58 +19,65 @@ object ModelDownloader {
         model: ModelRegistry.Model,
         onProgress: suspend (Int) -> Unit
     ): File? = withContext(Dispatchers.IO) {
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
         val outFile = ModelRegistry.modelFile(context, model)
+        val partFile = File(outFile.absolutePath + ".part")
         if (outFile.exists() && outFile.length() > 0) {
             DebugLog.i(TAG, "Model ${model.id} already downloaded")
             return@withContext outFile
         }
 
-        val request = android.app.DownloadManager.Request(android.net.Uri.parse(model.url)).apply {
-            setTitle("Downloading ${model.name}")
-            setDescription("TapType Pro voice model")
-            setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            setDestinationUri(android.net.Uri.fromFile(outFile))
-            setAllowedOverMetered(true)
-            setAllowedOverRoaming(true)
-            addRequestHeader("User-Agent", "TapTypePro/1.0 (Android)")
-        }
+        try {
+            partFile.parentFile?.mkdirs()
+            val url = URL(model.url)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "TapTypePro/1.0 (Android)")
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 30_000
+            conn.doInput = true
+            conn.instanceFollowRedirects = true
+            conn.connect()
 
-        val id = dm.enqueue(request)
-        DebugLog.i(TAG, "Enqueued download ${model.url} as #$id")
+            val responseCode = conn.responseCode
+            DebugLog.i(TAG, "Downloading ${model.url} → response=$responseCode")
+            if (responseCode !in 200..299) {
+                DebugLog.e(TAG, "HTTP error $responseCode for ${model.url}")
+                return@withContext null
+            }
 
-        var complete = false
-        var failedReason = -1
-        while (!complete) {
-            val q = android.app.DownloadManager.Query().setFilterById(id)
-            dm.query(q)?.use { cursor ->
-                if (!cursor.moveToFirst()) return@use
-                val status = cursor.getInt(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS))
-                val total = cursor.getLong(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-                val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                when (status) {
-                    android.app.DownloadManager.STATUS_SUCCESSFUL -> complete = true
-                    android.app.DownloadManager.STATUS_FAILED -> {
-                        failedReason = cursor.getInt(cursor.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_REASON))
-                        complete = true
-                    }
-                    else -> {
+            val total = conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+            partFile.outputStream().use { out ->
+                conn.inputStream.use { input ->
+                    val buffer = ByteArray(64 * 1024)
+                    var downloaded = 0L
+                    var bytes = 0
+                    while (isActive && input.read(buffer).also { bytes = it } != -1) {
+                        if (bytes > 0) out.write(buffer, 0, bytes)
+                        downloaded += bytes
                         if (total > 0) {
-                            onProgress(((downloaded.toDouble() / total) * 100).toInt())
+                            val pct = ((downloaded.toDouble() / total) * 100).toInt()
+                            onProgress(pct)
                         }
                     }
                 }
             }
-            if (!complete) delay(250)
-        }
 
-        if (failedReason != -1 || !outFile.exists() || outFile.length() == 0L) {
-            DebugLog.e(TAG, "Download failed for ${model.id}, reason=$failedReason")
-            outFile.delete()
-            return@withContext null
-        }
+            if (!isActive) {
+                partFile.delete()
+                return@withContext null
+            }
 
-        DebugLog.i(TAG, "Download completed: ${outFile.absolutePath}, size=${outFile.length()}")
-        outFile
+            partFile.renameTo(outFile)
+            if (!outFile.exists() || outFile.length() == 0L) {
+                DebugLog.e(TAG, "Output file missing or empty after download")
+                return@withContext null
+            }
+            DebugLog.i(TAG, "Download completed: ${outFile.absolutePath}, size=${outFile.length()}")
+            outFile
+        } catch (e: Exception) {
+            DebugLog.e(TAG, "Download exception for ${model.id}", e)
+            partFile.delete()
+            null
+        }
     }
 }

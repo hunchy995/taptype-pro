@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/CMakeFiles/kleidiai_download-populate"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/CMakeFiles/kleidiai_download-populate.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/CMakeFiles/kleidiai_download-populate-complete.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-build.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-configure.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-download.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-install.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-mkdir.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-patch.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-test.rule"
+		},
+		{
+			"file" : "/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"kleidiai_download-populate"
+		],
+		"name" : "kleidiai_download-populate"
+	}
+}

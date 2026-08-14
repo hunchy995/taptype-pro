@@ -1,0 +1,21 @@
+# ninja log v5
+2	50	1786744111886507622	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-mkdir	5a69bb9295e9a6fe
+2	50	1786744111886507622	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-mkdir	5a69bb9295e9a6fe
+50	783	1786744112619506641	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-download	f2508d44b411c500
+50	783	1786744112619506641	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-download	f2508d44b411c500
+783	796	1786744112632506624	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-update	75c72fb0dcf7e9ef
+783	796	1786744112632506624	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-update	75c72fb0dcf7e9ef
+796	807	1786744112643506609	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-patch	dc99c738e9c2141
+796	807	1786744112643506609	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-patch	dc99c738e9c2141
+807	821	1786744112657506590	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-configure	2103ad8c11d21914
+807	821	1786744112657506590	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-configure	2103ad8c11d21914
+821	838	1786744112674506567	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-build	5e81deacbf7b0c1c
+821	838	1786744112674506567	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-build	5e81deacbf7b0c1c
+839	855	1786744112690506546	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-install	41a46ba6c005393d
+839	855	1786744112690506546	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-install	41a46ba6c005393d
+855	868	1786744112703506529	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-test	17d231c8560796cf
+855	868	1786744112703506529	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-test	17d231c8560796cf
+868	894	1786744112728506495	CMakeFiles/kleidiai_download-populate-complete	81926196a3b2a8b3
+868	894	1786744112728506495	kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-done	81926196a3b2a8b3
+868	894	1786744112728506495	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/CMakeFiles/kleidiai_download-populate-complete	81926196a3b2a8b3
+868	894	1786744112728506495	/opt/data/taptype-pro/app/.cxx/Debug/22c3k115/arm64-v8a/_deps/kleidiai_download-subbuild/kleidiai_download-populate-prefix/src/kleidiai_download-populate-stamp/kleidiai_download-populate-done	81926196a3b2a8b3
