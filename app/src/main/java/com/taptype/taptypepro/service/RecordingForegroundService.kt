@@ -119,7 +119,7 @@ class RecordingForegroundService : Service() {
                 notifyOrbDone()
                 return
             }
-            val text = engine.transcribe(samples)
+            val text = applyTextSettings(engine.transcribe(samples))
             if (text.isBlank()) {
                 DebugLog.w(TAG, "Transcription returned empty text")
                 notifyOrbDone()
@@ -141,6 +141,22 @@ class RecordingForegroundService : Service() {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             TapTypeAccessibilityService.instance?.onTranscriptionComplete()
         }
+    }
+
+    private fun applyTextSettings(raw: String): String {
+        var text = raw.trim()
+        if (text.isEmpty()) return ""
+
+        if (Settings.autoCapitalize()) {
+            text = text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+        if (Settings.autoPunctuation()) {
+            val last = text.lastOrNull()
+            if (last != null && last.isLetterOrDigit()) {
+                text += "."
+            }
+        }
+        return text
     }
 
     private fun checkSilence(chunk: FloatArray) {

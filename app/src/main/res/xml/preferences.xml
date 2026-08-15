@@ -2,10 +2,48 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <SwitchPreferenceCompat
-        app:key="auto_stop"
-        app:title="@string/auto_stop"
-        app:summary="@string/auto_stop_summary"
-        app:defaultValue="false" />
+    <PreferenceCategory app:title="Appearance">
+
+        <ListPreference
+            app:key="orb_size"
+            app:title="@string/orb_size"
+            app:summary="@string/orb_size_summary"
+            app:entries="@array/orb_size_entries"
+            app:entryValues="@array/orb_size_values"
+            app:defaultValue="56" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Dictation">
+
+        <SwitchPreferenceCompat
+            app:key="auto_stop"
+            app:title="@string/auto_stop"
+            app:summary="@string/auto_stop_summary"
+            app:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            app:key="auto_capitalize"
+            app:title="@string/auto_capitalize"
+            app:summary="@string/auto_capitalize_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="auto_punctuation"
+            app:title="@string/auto_punctuation"
+            app:summary="@string/auto_punctuation_summary"
+            app:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Feedback">
+
+        <SwitchPreferenceCompat
+            app:key="haptics"
+            app:title="@string/haptics"
+            app:summary="@string/haptics_summary"
+            app:defaultValue="true" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>

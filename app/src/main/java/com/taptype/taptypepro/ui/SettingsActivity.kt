@@ -2,11 +2,10 @@ package com.taptype.taptypepro.ui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.preference.ListPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.taptype.taptypepro.R
-import com.taptype.taptypepro.engine.EngineType
-import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.Settings
 
 class SettingsActivity : AppCompatActivity() {
@@ -22,9 +21,28 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences, rootKey)
 
-            val autoStop = findPreference<SwitchPreferenceCompat>("auto_stop")
-            autoStop?.setOnPreferenceChangeListener { _, newValue ->
+            findPreference<SwitchPreferenceCompat>("auto_stop")?.setOnPreferenceChangeListener { _, newValue ->
                 Settings.setAutoStop(newValue as Boolean)
+                true
+            }
+
+            findPreference<ListPreference>("orb_size")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setOrbSizeDp((newValue as String).toInt())
+                true
+            }
+
+            findPreference<SwitchPreferenceCompat>("auto_capitalize")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setAutoCapitalize(newValue as Boolean)
+                true
+            }
+
+            findPreference<SwitchPreferenceCompat>("auto_punctuation")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setAutoPunctuation(newValue as Boolean)
+                true
+            }
+
+            findPreference<SwitchPreferenceCompat>("haptics")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setHapticsEnabled(newValue as Boolean)
                 true
             }
         }

@@ -12,6 +12,14 @@
     <string name="active_model">Active model</string>
     <string name="auto_stop">Auto-stop on silence</string>
     <string name="auto_stop_summary">Stop recording automatically after a short silence.</string>
+    <string name="orb_size">Floating button size</string>
+    <string name="orb_size_summary">Small, medium, or large floating button</string>
+    <string name="auto_capitalize">Auto-capitalize</string>
+    <string name="auto_capitalize_summary">Capitalize the first letter of each transcription</string>
+    <string name="auto_punctuation">Auto-punctuation</string>
+    <string name="auto_punctuation_summary">Add a period at the end if missing</string>
+    <string name="haptics">Haptic feedback</string>
+    <string name="haptics_summary">Vibrate when recording starts and stops</string>
     <string name="no_model">No model active — download one below</string>
     <string name="recording">Recording…</string>
     <string name="tap_to_record">Tap to record</string>

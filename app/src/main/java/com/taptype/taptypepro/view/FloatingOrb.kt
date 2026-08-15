@@ -20,6 +20,7 @@ import android.widget.ProgressBar
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.service.RecordingForegroundService
 import com.taptype.taptypepro.util.DebugLog
+import com.taptype.taptypepro.util.Settings
 
 @SuppressLint("InflateParams")
 class FloatingOrb(private val context: Context) {
@@ -31,9 +32,11 @@ class FloatingOrb(private val context: Context) {
     private val ringView = view.findViewById<View>(R.id.recordingRing)
     private val spinner = view.findViewById<ProgressBar>(R.id.orbSpinner)
 
+    private val orbSizePx = (Settings.orbSizeDp() * context.resources.displayMetrics.density).toInt()
+
     private var params = WindowManager.LayoutParams(
-        context.resources.getDimensionPixelSize(R.dimen.orb_size),
-        context.resources.getDimensionPixelSize(R.dimen.orb_size),
+        orbSizePx,
+        orbSizePx,
         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
@@ -193,6 +196,7 @@ class FloatingOrb(private val context: Context) {
     }
 
     private fun hapticStart() {
+        if (!Settings.hapticsEnabled()) return
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
@@ -203,6 +207,7 @@ class FloatingOrb(private val context: Context) {
     }
 
     private fun hapticStop() {
+        if (!Settings.hapticsEnabled()) return
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE))
