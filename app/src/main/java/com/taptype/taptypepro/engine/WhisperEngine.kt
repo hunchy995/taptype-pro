@@ -39,11 +39,49 @@ class WhisperEngine : SpeechEngine {
     override fun transcribe(audioData: FloatArray): String {
         if (nativePtr == 0L) return ""
         return try {
-            nativeTranscribe(nativePtr, audioData)
+            val raw = nativeTranscribe(nativePtr, audioData)
+            cleanTranscription(raw)
         } catch (e: Exception) {
             DebugLog.e(TAG, "Transcription failed", e)
             ""
         }
+    }
+
+    // Strip hallucinated filler tokens whisper.cpp emits on silence/noise
+    // (e.g. "Message", "Thank you", "Thanks for watching", "[BLANK_AUDIO]").
+    private fun cleanTranscription(raw: String): String {
+        var text = raw.trim()
+        if (text.isEmpty()) return ""
+
+        // Drop standalone filler phrases at the very start (case-insensitive).
+        val leadingFillers = listOf(
+            "message inaudible",
+            "message",
+            "thank you for watching",
+            "thanks for watching",
+            "thank you",
+            "please subscribe",
+            "subscribe",
+            "um",
+            "uh"
+        )
+        var changed = true
+        while (changed && text.isNotEmpty()) {
+            changed = false
+            for (filler in leadingFillers) {
+                // Match the filler as a standalone word/phrase at the start,
+                // optionally followed by punctuation, then remove it.
+                val pattern = Regex(
+                    "^\\s*" + Regex.escape(filler) + "([.,!?;:]*)(\\s+|$)",
+                    RegexOption.IGNORE_CASE
+                )
+                val match = pattern.find(text) ?: continue
+                text = text.removeRange(match.range).trimStart()
+                changed = true
+                break
+            }
+        }
+        return text
     }
 
     override fun release() {

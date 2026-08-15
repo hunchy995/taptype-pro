@@ -50,6 +50,53 @@ static void convert_i16_to_f32(const int16_t* src, float* dst, size_t count) {
 #endif
 }
 
+// Trim leading and trailing silence so whisper.cpp doesn't hallucinate
+// filler tokens (e.g. "Message", "Thank you") on the silent tail/head.
+// Returns false if the entire buffer is silence (caller should emit empty).
+static bool trim_silence(std::vector<float>& pcm, int sample_rate) {
+    const int frame = sample_rate / 100;  // 10ms frames
+    if ((int)pcm.size() < frame) return true;
+
+    const size_t n_frames = pcm.size() / frame;
+    std::vector<float> rms(n_frames, 0.0f);
+    float max_rms = 0.0f;
+    for (size_t f = 0; f < n_frames; f++) {
+        double sum = 0.0;
+        const float* base = pcm.data() + f * frame;
+        for (int i = 0; i < frame; i++) {
+            float s = base[i];
+            sum += (double)s * s;
+        }
+        rms[f] = (float)std::sqrt(sum / frame);
+        if (rms[f] > max_rms) max_rms = rms[f];
+    }
+
+    // Adaptive threshold: 8% of peak, with a floor to catch very quiet speech.
+    const float threshold = std::max(0.004f, max_rms * 0.08f);
+
+    int start_frame = -1;
+    int end_frame = -1;
+    for (size_t f = 0; f < n_frames; f++) {
+        if (rms[f] > threshold) { start_frame = (int)f; break; }
+    }
+    for (size_t f = n_frames; f-- > 0;) {
+        if (rms[f] > threshold) { end_frame = (int)f; break; }
+    }
+
+    if (start_frame < 0 || end_frame < 0 || end_frame < start_frame) {
+        // Entire buffer is silence — nothing to transcribe.
+        return false;
+    }
+
+    // Pad slightly so speech isn't clipped at the edges.
+    const int pad = 10;  // 100ms
+    int start = std::max(0, start_frame - pad) * frame;
+    int end = std::min((int)pcm.size(), (end_frame + 1 + pad) * frame);
+    pcm = std::vector<float>(pcm.begin() + start, pcm.begin() + end);
+    return true;
+}
+
+
 extern "C" {
 
 JNIEXPORT jlong JNICALL
@@ -85,6 +132,15 @@ Java_com_taptype_taptypepro_engine_WhisperEngine_nativeTranscribe(
     jfloat* raw = env->GetFloatArrayElements(samples, nullptr);
     std::vector<float> pcmf32(raw, raw + len);
     env->ReleaseFloatArrayElements(samples, raw, JNI_ABORT);
+
+    // Drop leading/trailing silence to avoid hallucinated filler tokens.
+    if (!trim_silence(pcmf32, WHISPER_SAMPLE_RATE)) {
+        return env->NewStringUTF("");
+    }
+    if (pcmf32.size() < WHISPER_SAMPLE_RATE / 4) {
+        // Too short to contain meaningful speech.
+        return env->NewStringUTF("");
+    }
 
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.print_progress = false;

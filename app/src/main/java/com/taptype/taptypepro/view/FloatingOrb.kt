@@ -4,8 +4,11 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PixelFormat
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -48,16 +51,31 @@ class FloatingOrb(private val context: Context) {
     private var touchY = 0f
     private val handler = Handler(Looper.getMainLooper())
 
+    // Pulsing red ring while recording
     private val ringAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 1200
         repeatMode = ValueAnimator.RESTART
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener { animator ->
-            val scale = 1f + 0.15f * (animator.animatedValue as Float)
+            val progress = animator.animatedValue as Float
+            val scale = 1f + 0.30f * progress
             ringView.scaleX = scale
             ringView.scaleY = scale
-            ringView.alpha = 1f - (animator.animatedValue as Float)
+            ringView.alpha = 1f - progress
+        }
+    }
+
+    // Breathing scale on the orb itself while recording
+    private val orbBreathing = ValueAnimator.ofFloat(1f, 1.12f, 1f).apply {
+        duration = 1400
+        repeatMode = ValueAnimator.RESTART
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = LinearInterpolator()
+        addUpdateListener { animator ->
+            val scale = animator.animatedValue as Float
+            orbImage.scaleX = scale
+            orbImage.scaleY = scale
         }
     }
 
@@ -123,17 +141,54 @@ class FloatingOrb(private val context: Context) {
 
     private fun startRecording() {
         isRecording = true
+        // Switch icon and background to recording state
+        orbImage.setImageResource(R.drawable.ic_stop)
+        orbImage.setBackgroundResource(R.drawable.orb_background_recording)
+        // Start pulse ring + breathing
         ringView.visibility = View.VISIBLE
+        ringView.scaleX = 1f
+        ringView.scaleY = 1f
         ringAnimator.start()
+        orbBreathing.start()
+        // Tactile feedback
+        hapticStart()
         RecordingForegroundService.start(context)
         DebugLog.i(TAG, "Orb: start recording requested")
     }
 
     private fun stopRecording() {
         isRecording = false
+        // Cancel animations and reset scale
         ringAnimator.cancel()
+        orbBreathing.cancel()
         ringView.visibility = View.GONE
+        orbImage.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+        // Restore idle icon + background
+        orbImage.setImageResource(R.drawable.ic_mic)
+        orbImage.setBackgroundResource(R.drawable.orb_background)
+        // Tactile feedback
+        hapticStop()
         RecordingForegroundService.stop(context)
         DebugLog.i(TAG, "Orb: stop recording requested")
+    }
+
+    private fun hapticStart() {
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(40)
+        }
+    }
+
+    private fun hapticStop() {
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(60)
+        }
     }
 }
