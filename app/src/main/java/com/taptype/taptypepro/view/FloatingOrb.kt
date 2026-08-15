@@ -16,6 +16,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
+import android.widget.ProgressBar
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.service.RecordingForegroundService
 import com.taptype.taptypepro.util.DebugLog
@@ -28,6 +29,7 @@ class FloatingOrb(private val context: Context) {
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_orb, null)
     private val orbImage = view.findViewById<ImageView>(R.id.orbImage)
     private val ringView = view.findViewById<View>(R.id.recordingRing)
+    private val spinner = view.findViewById<ProgressBar>(R.id.orbSpinner)
 
     private var params = WindowManager.LayoutParams(
         context.resources.getDimensionPixelSize(R.dimen.orb_size),
@@ -44,6 +46,7 @@ class FloatingOrb(private val context: Context) {
 
     private var isShowing = false
     private var isRecording = false
+    private var isProcessing = false
     private var isDragging = false
     private var initialX = 0
     private var initialY = 0
@@ -136,6 +139,7 @@ class FloatingOrb(private val context: Context) {
     }
 
     private fun onOrbTapped() {
+        if (isProcessing) return  // ignore taps while transcribing
         if (isRecording) stopRecording() else startRecording()
     }
 
@@ -163,13 +167,29 @@ class FloatingOrb(private val context: Context) {
         orbBreathing.cancel()
         ringView.visibility = View.GONE
         orbImage.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-        // Restore idle icon + background
-        orbImage.setImageResource(R.drawable.ic_mic)
-        orbImage.setBackgroundResource(R.drawable.orb_background)
+        // Show loading spinner while the service transcribes
+        showProcessing()
         // Tactile feedback
         hapticStop()
         RecordingForegroundService.stop(context)
         DebugLog.i(TAG, "Orb: stop recording requested")
+    }
+
+    private fun showProcessing() {
+        isProcessing = true
+        orbImage.setImageDrawable(null)           // hide mic/stop icon
+        orbImage.setBackgroundResource(R.drawable.orb_background)
+        spinner.visibility = View.VISIBLE
+    }
+
+    fun onTranscriptionComplete() {
+        handler.post {
+            isProcessing = false
+            spinner.visibility = View.GONE
+            orbImage.setImageResource(R.drawable.ic_mic)
+            orbImage.setBackgroundResource(R.drawable.orb_background)
+            DebugLog.i(TAG, "Orb: transcription complete, back to idle")
+        }
     }
 
     private fun hapticStart() {

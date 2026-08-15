@@ -46,6 +46,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         if (orb == null) orb = FloatingOrb(this)
     }
 
+    fun onTranscriptionComplete() {
+        orb?.onTranscriptionComplete()
+    }
+
     private fun updateOverlayState() {
         ensureOrb()
         val rootNode = rootInActiveWindow

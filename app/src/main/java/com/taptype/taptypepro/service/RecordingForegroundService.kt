@@ -116,20 +116,30 @@ class RecordingForegroundService : Service() {
             val engine = EngineManager.getActiveEngine(this@RecordingForegroundService)
             if (engine == null || !engine.isLoaded) {
                 DebugLog.e(TAG, "No active engine loaded")
+                notifyOrbDone()
                 return
             }
             val text = engine.transcribe(samples)
             if (text.isBlank()) {
                 DebugLog.w(TAG, "Transcription returned empty text")
+                notifyOrbDone()
                 return
             }
             HistoryStore.add(HistoryEntry(text = text, engine = engine.type.name, model = engine.loadedModelId, durationMs = duration))
 
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 TapTypeAccessibilityService.instance?.injectText(text)
+                TapTypeAccessibilityService.instance?.onTranscriptionComplete()
             }
         } catch (e: Exception) {
             DebugLog.e(TAG, "Transcribe/inject failed", e)
+            notifyOrbDone()
+        }
+    }
+
+    private fun notifyOrbDone() {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            TapTypeAccessibilityService.instance?.onTranscriptionComplete()
         }
     }
 

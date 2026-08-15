@@ -5,6 +5,7 @@
 #include <atomic>
 #include <vector>
 #include <algorithm>
+#include <cctype>
 #include <unistd.h>
 #include <sys/sysinfo.h>
 #include <pthread.h>
@@ -96,6 +97,52 @@ static bool trim_silence(std::vector<float>& pcm, int sample_rate) {
     return true;
 }
 
+// Strip a leading hallucinated filler word ("Message", "Thank you", etc.) and
+// any leading/trailing whitespace so the transcription never starts with junk.
+static std::string clean_text(std::string s) {
+    // Trim leading/trailing whitespace and stray punctuation.
+    size_t b = s.find_first_not_of(" \t\n\r.,!?;:");
+    if (b == std::string::npos) return "";
+    s = s.substr(b);
+    size_t e = s.find_last_not_of(" \t\n\r");
+    s = s.substr(0, e + 1);
+
+    // Case-insensitive leading-filler removal.
+    static const char* fillers[] = {
+        "message inaudible", "message", "thank you for watching",
+        "thanks for watching", "thank you", "please subscribe",
+        "subscribe", "um", "uh"
+    };
+    bool changed = true;
+    while (changed && !s.empty()) {
+        changed = false;
+        for (const char* f : fillers) {
+            size_t flen = strlen(f);
+            if (s.size() < flen) continue;
+            // Case-insensitive prefix match
+            bool match = true;
+            for (size_t i = 0; i < flen; i++) {
+                if (std::tolower((unsigned char)s[i]) != std::tolower((unsigned char)f[i])) {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match) continue;
+            // Must be a standalone word: next char is whitespace, punctuation, or end.
+            if (s.size() > flen && !std::isspace((unsigned char)s[flen]) &&
+                std::string(".,!?;:").find(s[flen]) == std::string::npos) {
+                continue;
+            }
+            s = s.substr(flen);
+            size_t nb = s.find_first_not_of(" \t\n\r.,!?;:");
+            s = (nb == std::string::npos) ? "" : s.substr(nb);
+            changed = true;
+            break;
+        }
+    }
+    return s;
+}
+
 
 extern "C" {
 
@@ -175,6 +222,7 @@ Java_com_taptype_taptypepro_engine_WhisperEngine_nativeTranscribe(
             result += text;
         }
     }
+    result = clean_text(result);
     return env->NewStringUTF(result.c_str());
 }
 

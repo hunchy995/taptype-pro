@@ -23,4 +23,14 @@
         android:background="@drawable/orb_background"
         android:contentDescription="@string/tap_to_record" />
 
+    <!-- Loading spinner shown while transcribing -->
+    <ProgressBar
+        android:id="@+id/orbSpinner"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="center"
+        android:indeterminateTint="@color/white"
+        android:visibility="gone" />
+
 </FrameLayout>
