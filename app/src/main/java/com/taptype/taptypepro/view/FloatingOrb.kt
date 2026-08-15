@@ -23,7 +23,7 @@ import com.taptype.taptypepro.service.RecordingForegroundService
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.Settings
 import kotlin.math.PI
-import kotlin.math.sin
+import kotlin.math.cos
 
 /**
  * Floating dictation button with Apple-inspired motion design.
@@ -43,7 +43,6 @@ class FloatingOrb(private val context: Context) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_orb, null)
     private val orbImage = view.findViewById<ImageView>(R.id.orbImage)
-    private val ringView = view.findViewById<View>(R.id.recordingRing)
     private val spinner = view.findViewById<ProgressBar>(R.id.orbSpinner)
 
     private val orbSizePx = (Settings.orbSizeDp() * context.resources.displayMetrics.density).toInt()
@@ -75,30 +74,18 @@ class FloatingOrb(private val context: Context) {
     private val spring = OvershootInterpolator(1.8f)
     private val quickOut = DecelerateInterpolator(2.5f)
 
-    // --- Recording: sonar pulse ring (eased, organic expansion + fade) ---
-    private val ringAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 1600
-        repeatMode = ValueAnimator.RESTART
-        repeatCount = ValueAnimator.INFINITE
-        interpolator = DecelerateInterpolator(1.6f)
-        addUpdateListener { animator ->
-            val p = animator.animatedValue as Float
-            val scale = 1f + 0.55f * p
-            ringView.scaleX = scale
-            ringView.scaleY = scale
-            ringView.alpha = (1f - p) * 0.85f
-        }
-    }
-
-    // --- Recording: smooth sine "breathing" on the orb itself ---
-    private val orbBreathing = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 2000
+    // --- Recording: "heartbeat" pulse on the button itself.
+    //     Scales between 0.90 and 1.00 so it NEVER exceeds the window bounds —
+    //     this is what stops the circle from being cropped at large sizes. ---
+    private val orbPulse = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 900
         repeatMode = ValueAnimator.RESTART
         repeatCount = ValueAnimator.INFINITE
         interpolator = android.view.animation.LinearInterpolator()
         addUpdateListener { animator ->
             val p = animator.animatedValue as Float
-            val scale = 1f + 0.06f * sin(p * 2.0 * PI).toFloat()
+            val t = p * 2.0 * PI
+            val scale = 0.95f + 0.05f * cos(t).toFloat() // 1.00 -> 0.90 -> 1.00
             orbImage.scaleX = scale
             orbImage.scaleY = scale
         }
@@ -205,14 +192,9 @@ class FloatingOrb(private val context: Context) {
     private fun startRecording() {
         isRecording = true
         pressOut()
-        // Crossfade the icon to the stop glyph, then start the living animations.
+        // Crossfade the icon to the stop glyph, then start the pulse.
         crossfadeIcon(R.drawable.ic_stop, R.drawable.orb_background_recording) {
-            ringView.visibility = View.VISIBLE
-            ringView.scaleX = 1f
-            ringView.scaleY = 1f
-            ringView.alpha = 0.85f
-            ringAnimator.start()
-            orbBreathing.start()
+            orbPulse.start()
         }
         hapticStart()
         RecordingForegroundService.start(context)
@@ -221,9 +203,7 @@ class FloatingOrb(private val context: Context) {
 
     private fun stopRecording() {
         isRecording = false
-        ringAnimator.cancel()
-        orbBreathing.cancel()
-        ringView.visibility = View.GONE
+        orbPulse.cancel()
         // Snap scale back to 1 with a small spring, then show the processing spinner.
         orbImage.animate().cancel()
         orbImage.animate()
