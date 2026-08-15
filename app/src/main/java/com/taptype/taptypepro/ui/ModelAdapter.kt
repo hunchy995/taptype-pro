@@ -21,11 +21,14 @@ class ModelAdapter(
     class ModelState(val model: ModelRegistry.Model) {
         var status = Status.NOT_INSTALLED
         var isActive = false
+        var isLoading = false
         var progress = 0
     }
 
     val models: List<ModelState>
         get() = items
+
+    fun indexOfModel(modelId: String): Int = items.indexOfFirst { it.model.id == modelId }
 
     class VH(view: View) : RecyclerView.ViewHolder(view) {
         val name: TextView = view.findViewById(R.id.modelName)
@@ -50,28 +53,41 @@ class ModelAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val state = items[position]
-        holder.name.text = state.model.name + if (state.isActive) " ●" else ""
+        holder.name.text = state.model.name + when {
+            state.isActive -> " ●"
+            state.isLoading -> " …"
+            else -> ""
+        }
         holder.desc.text = state.model.description
         holder.size.text = "${state.model.sizeMB} MB"
         holder.progressBar.progress = state.progress
         holder.progressText.text = "${state.progress}%"
 
-        when (state.status) {
-            Status.NOT_INSTALLED -> {
+        when {
+            state.isLoading -> {
+                holder.actionBtn.text = "Loading…"
+                holder.actionBtn.visibility = View.VISIBLE
+                holder.actionBtn.isEnabled = false
+                holder.progressBar.visibility = View.GONE
+                holder.progressText.visibility = View.GONE
+            }
+            state.status == Status.NOT_INSTALLED -> {
                 holder.actionBtn.text = "Download"
                 holder.actionBtn.visibility = View.VISIBLE
+                holder.actionBtn.isEnabled = true
                 holder.progressBar.visibility = View.GONE
                 holder.progressText.visibility = View.GONE
                 holder.actionBtn.setOnClickListener { onAction(state, "download") }
             }
-            Status.DOWNLOADING -> {
+            state.status == Status.DOWNLOADING -> {
                 holder.actionBtn.visibility = View.GONE
                 holder.progressBar.visibility = View.VISIBLE
                 holder.progressText.visibility = View.VISIBLE
             }
-            Status.INSTALLED -> {
+            state.status == Status.INSTALLED -> {
                 holder.actionBtn.text = if (state.isActive) "Active" else "Activate"
                 holder.actionBtn.visibility = View.VISIBLE
+                holder.actionBtn.isEnabled = true
                 holder.progressBar.visibility = View.GONE
                 holder.progressText.visibility = View.GONE
                 holder.actionBtn.setOnClickListener { if (!state.isActive) onAction(state, "activate") }

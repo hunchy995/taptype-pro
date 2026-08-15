@@ -17,7 +17,9 @@ import com.taptype.taptypepro.engine.ModelRegistry
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.HistoryStore
 import com.taptype.taptypepro.util.Settings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -80,41 +82,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadModel(state: ModelAdapter.ModelState) {
+        val modelId = state.model.id
         lifecycleScope.launch {
             state.status = ModelAdapter.Status.DOWNLOADING
-            adapter.notifyItemChanged(adapter.models.indexOf(state))
+            state.progress = 0
+            adapter.notifyItemChanged(adapter.indexOfModel(modelId))
             try {
                 val file = ModelDownloader.download(this@MainActivity, state.model) { pct ->
                     state.progress = pct
-                    adapter.notifyItemChanged(adapter.models.indexOf(state))
+                    withContext(Dispatchers.Main) {
+                        val idx = adapter.indexOfModel(modelId)
+                        if (idx >= 0) adapter.notifyItemChanged(idx)
+                    }
                 }
                 if (file != null) {
                     state.status = ModelAdapter.Status.INSTALLED
+                    adapter.notifyItemChanged(adapter.indexOfModel(modelId))
                     activateModel(state)
                 } else {
                     state.status = ModelAdapter.Status.NOT_INSTALLED
-                    adapter.notifyItemChanged(adapter.models.indexOf(state))
+                    adapter.notifyItemChanged(adapter.indexOfModel(modelId))
                     Toast.makeText(this@MainActivity, "Download failed", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 DebugLog.e("MainActivity", "Download error", e)
                 state.status = ModelAdapter.Status.NOT_INSTALLED
-                adapter.notifyItemChanged(adapter.models.indexOf(state))
+                adapter.notifyItemChanged(adapter.indexOfModel(modelId))
                 Toast.makeText(this@MainActivity, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
     private fun activateModel(state: ModelAdapter.ModelState) {
+        val modelId = state.model.id
+        val modelName = state.model.name
+        // Mark all models as inactive and this one as "loading" for immediate UI feedback.
+        adapter.models.forEach {
+            it.isActive = false
+            it.isLoading = (it.model.id == modelId)
+        }
+        adapter.notifyDataSetChanged()
+        Settings.setActiveModel(state.model.engine.name, modelId)
+
         lifecycleScope.launch {
-            Settings.setActiveModel(state.model.engine.name, state.model.id)
-            val loaded = EngineManager.loadEngine(this@MainActivity, state.model.engine)
+            // Load the model off the main thread — loading a Whisper model is heavy
+            // and blocks the UI (this was the "buggy/slow" switching).
+            val loaded = withContext(Dispatchers.IO) {
+                EngineManager.loadEngine(this@MainActivity, state.model.engine)
+            }
+            adapter.models.forEach {
+                it.isLoading = false
+                it.isActive = (loaded?.isLoaded == true && it.model.id == modelId)
+            }
             if (loaded != null && loaded.isLoaded) {
-                adapter.models.forEach { it.isActive = (it.model.id == state.model.id) }
                 adapter.notifyDataSetChanged()
                 refreshUi()
-                Toast.makeText(this@MainActivity, "${state.model.name} active", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "$modelName active", Toast.LENGTH_SHORT).show()
             } else {
+                adapter.notifyDataSetChanged()
                 Toast.makeText(this@MainActivity, "Failed to load model", Toast.LENGTH_SHORT).show()
             }
         }
