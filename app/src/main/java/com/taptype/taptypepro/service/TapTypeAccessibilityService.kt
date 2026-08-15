@@ -59,6 +59,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         orb?.onAudioLevel(rms)
     }
 
+    fun onPartialTranscription(text: String) {
+        orb?.onPartialTranscription(text)
+    }
+
     private fun updateOverlayState() {
         ensureOrb()
         val rootNode = rootInActiveWindow

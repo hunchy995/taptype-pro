@@ -24,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RecordingForegroundService : Service() {
     companion object {
@@ -53,7 +54,11 @@ class RecordingForegroundService : Service() {
 
     private lateinit var recorder: AudioRecorder
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Single-thread dispatcher serializes ALL transcription calls (partial + final).
+    // ONNX Runtime and whisper sessions are NOT safe for concurrent run() calls.
+    private val transcribeDispatcher = Dispatchers.IO.limitedParallelism(1)
     private var silenceJob: Job? = null
+    private var partialJob: Job? = null
     private var startTime = 0L
 
     override fun onCreate() {
@@ -97,6 +102,34 @@ class RecordingForegroundService : Service() {
                 }
             }
         }
+
+        // Live partial transcription — preview only. Runs on the single-thread
+        // dispatcher so it never overlaps the final transcription. The final
+        // injected text is still a full-buffer transcription, so this preview
+        // cannot degrade output quality.
+        partialJob = serviceScope.launch {
+            var lastPreviewLen = 0
+            while (isRunning) {
+                delay(900)
+                if (!isRunning) break
+                val snap = recorder.snapshot()
+                // Only preview if there's meaningful new audio (~1s + 0.4s new).
+                if (snap.size < 16000 || snap.size < lastPreviewLen + 6400) continue
+                val engine = withContext(transcribeDispatcher) {
+                    EngineManager.getActiveEngine(this@RecordingForegroundService)
+                }
+                if (engine == null || !engine.isLoaded) continue
+                val partial = withContext(transcribeDispatcher) {
+                    runCatching { applyTextSettings(engine.transcribe(snap)) }.getOrDefault("")
+                }
+                if (partial.isNotBlank()) {
+                    lastPreviewLen = snap.size
+                    withContext(Dispatchers.Main) {
+                        TapTypeAccessibilityService.instance?.onPartialTranscription(partial)
+                    }
+                }
+            }
+        }
     }
 
     private var lastLevelPushMs = 0L
@@ -104,6 +137,7 @@ class RecordingForegroundService : Service() {
     private fun stopRecording() {
         if (!isRunning) return
         isRunning = false
+        partialJob?.cancel()
         val samples = recorder.stop()
         silenceJob?.cancel()
         val duration = System.currentTimeMillis() - startTime
@@ -121,13 +155,17 @@ class RecordingForegroundService : Service() {
 
     private suspend fun transcribeAndInject(samples: FloatArray, duration: Long) {
         try {
+            // Run the final transcription on the single-thread dispatcher so it
+            // never overlaps a partial transcription still in flight.
             val engine = EngineManager.getActiveEngine(this@RecordingForegroundService)
             if (engine == null || !engine.isLoaded) {
                 DebugLog.e(TAG, "No active engine loaded")
                 notifyOrbDone()
                 return
             }
-            val text = applyTextSettings(engine.transcribe(samples))
+            val text = withContext(transcribeDispatcher) {
+                applyTextSettings(engine.transcribe(samples))
+            }
             if (text.isBlank()) {
                 DebugLog.w(TAG, "Transcription returned empty text")
                 notifyOrbDone()

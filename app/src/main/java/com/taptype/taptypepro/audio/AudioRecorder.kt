@@ -95,4 +95,7 @@ class AudioRecorder(private val context: Context) {
         val sumSq = tail.sumOf { (it * it).toDouble() }
         return kotlin.math.sqrt(sumSq / tail.size).toFloat()
     }
+
+    /** Snapshot of the accumulated audio so far (for live partial transcription). */
+    fun snapshot(): FloatArray = recordedBuffer.copyOf()
 }

@@ -47,6 +47,9 @@ class FloatingOrb(private val context: Context) {
     private val levelTrack = view.findViewById<View>(R.id.levelTrack)
     private val levelFill = view.findViewById<View>(R.id.levelFill)
 
+    // Live transcription preview bubble (separate overlay window).
+    private val preview = FloatingPreview(context)
+
     private val orbSizePx = (Settings.orbSizeDp() * context.resources.displayMetrics.density).toInt()
 
     private var params = WindowManager.LayoutParams(
@@ -184,6 +187,7 @@ class FloatingOrb(private val context: Context) {
 
     fun destroy() {
         hide()
+        preview.destroy()
     }
 
     private fun onOrbTapped() {
@@ -210,6 +214,7 @@ class FloatingOrb(private val context: Context) {
     private fun stopRecording() {
         isRecording = false
         orbPulse.cancel()
+        preview.hide()
         // Hide the level meter.
         levelTrack.visibility = View.GONE
         levelFill.visibility = View.GONE
@@ -236,6 +241,14 @@ class FloatingOrb(private val context: Context) {
             val normalized = (rms / 0.12f).coerceIn(0f, 1f)
             val curved = 1f - (1f - normalized) * (1f - normalized)  // ease-out
             levelFill.scaleX = curved
+        }
+    }
+
+    // Live partial transcription preview. Called by the service while recording.
+    fun onPartialTranscription(text: String) {
+        handler.post {
+            if (!isRecording || text.isBlank()) return@post
+            preview.show(text, params.x, params.y)
         }
     }
 
@@ -291,6 +304,7 @@ class FloatingOrb(private val context: Context) {
     fun onTranscriptionComplete() {
         handler.post {
             isProcessing = false
+            preview.hide()
             // Crossfade the spinner out and the mic icon back in.
             spinner.animate().cancel()
             spinner.animate()
