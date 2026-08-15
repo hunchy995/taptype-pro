@@ -15,7 +15,10 @@ object ModelRegistry {
         val sizeMB: Long,
         val description: String,
         val filename: String,
-        val hfUrl: String
+        val hfUrl: String,
+        // Optional secondary file (e.g. vocab.txt) downloaded alongside the model.
+        val auxFilename: String? = null,
+        val auxUrl: String? = null
     ) {
         val url: String
             get() = hfUrl
@@ -50,15 +53,17 @@ object ModelRegistry {
             filename = "ggml-small.en-q5_1.bin",
             hfUrl = "$WHISPER_BASE_URL/ggml-small.en-q5_1.bin"
         ),
-        // Parakeet placeholder — still needs proper preprocessing code
+        // Parakeet CTC (NVIDIA NeMo, self-contained int8 ONNX)
         Model(
             id = "parakeet-0.6b",
             engine = EngineType.PARAKEET,
             name = "Parakeet 0.6b ONNX",
-            sizeMB = 240,
-            description = "Coming soon — transcription not yet implemented",
-            filename = "model.onnx",
-            hfUrl = "$PARAKEET_BASE_URL/model.onnx"
+            sizeMB = 653,
+            description = "NVIDIA Parakeet CTC — fast, accurate",
+            filename = "model.int8.onnx",
+            hfUrl = "$PARAKEET_BASE_URL/model.int8.onnx",
+            auxFilename = "vocab.txt",
+            auxUrl = "$PARAKEET_BASE_URL/vocab.txt"
         )
     )
 
@@ -69,5 +74,9 @@ object ModelRegistry {
 
     fun modelFile(context: android.content.Context, model: Model): File {
         return File(modelDir(context), model.filename)
+    }
+
+    fun auxFile(context: android.content.Context, model: Model): File? {
+        return model.auxFilename?.let { File(modelDir(context), it) }
     }
 }

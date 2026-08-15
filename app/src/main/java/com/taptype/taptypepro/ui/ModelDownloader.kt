@@ -73,11 +73,40 @@ object ModelDownloader {
                 return@withContext null
             }
             DebugLog.i(TAG, "Download completed: ${outFile.absolutePath}, size=${outFile.length()}")
+
+            // Download the auxiliary file (e.g. vocab.txt) if this model has one.
+            downloadAux(context, model)
             outFile
         } catch (e: Exception) {
             DebugLog.e(TAG, "Download exception for ${model.id}", e)
             partFile.delete()
             null
+        }
+    }
+
+    private fun downloadAux(context: Context, model: ModelRegistry.Model) {
+        val auxUrl = model.auxUrl ?: return
+        val auxFile = ModelRegistry.auxFile(context, model) ?: return
+        if (auxFile.exists() && auxFile.length() > 0) return
+
+        try {
+            val conn = URL(auxUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("User-Agent", "TapTypePro/1.0 (Android)")
+            conn.connectTimeout = 30_000
+            conn.readTimeout = 30_000
+            conn.instanceFollowRedirects = true
+            conn.connect()
+            if (conn.responseCode !in 200..299) {
+                DebugLog.e(TAG, "Aux HTTP error ${conn.responseCode} for $auxUrl")
+                return
+            }
+            auxFile.outputStream().use { out ->
+                conn.inputStream.use { input -> input.copyTo(out) }
+            }
+            DebugLog.i(TAG, "Aux downloaded: ${auxFile.absolutePath}, size=${auxFile.length()}")
+        } catch (e: Exception) {
+            DebugLog.e(TAG, "Aux download failed for $auxUrl", e)
         }
     }
 }
