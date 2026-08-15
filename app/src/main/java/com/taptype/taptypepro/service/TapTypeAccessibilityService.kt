@@ -101,11 +101,12 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
             val hintText = node.hintText?.toString() ?: ""
             val showingHint = node.isShowingHintText
             DebugLog.d(TAG, "injectText: current='$currentText', hint='$hintText', showingHint=$showingHint, new='$clean'")
-            // A field's placeholder/hint (e.g. Telegram's "Message") is NOT real
-            // content. Treat the field as empty when the accessibility layer
-            // reports it is currently showing hint text, OR when the "current"
-            // text is literally just the hint string.
-            val realCurrent = if (showingHint || (currentText.isNotBlank() && currentText == hintText)) "" else currentText
+            // Some apps (e.g. Telegram) expose their placeholder ("Message") as the
+            // field's literal text, with empty hint and showingHint=false — so the
+            // hint APIs can't catch it. Apply the leading-word filter to the existing
+            // field text too: a field that only contains "Message" becomes empty.
+            val filteredCurrent = stripLeadingWords(currentText)
+            val realCurrent = if (showingHint || (currentText.isNotBlank() && currentText == hintText)) "" else filteredCurrent
             val combined = if (realCurrent.isBlank()) clean else "$realCurrent $clean"
             val args = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, combined)
