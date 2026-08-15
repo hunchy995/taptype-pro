@@ -152,7 +152,14 @@ Java_com_taptype_taptypepro_engine_WhisperEngine_nativeTranscribe(
     wparams.n_threads = g_optimal_threads;
     wparams.no_context = true;
     wparams.single_segment = true;
+    // Kill the "Message"/"Thank you" hallucination on silence (issues #1724, #1592):
+    //  - no_timestamps: don't COMPUTE timestamps (not just hide them). Timestamp
+    //    decoding is the main driver of whisper.cpp hallucination; disabling it
+    //    gives a ~4x WER reduction and removes the phantom filler tokens.
+    //  - suppress_nst: suppress non-speech tokens ("Message", "Thank you", etc.).
+    wparams.no_timestamps = true;
     wparams.suppress_blank = true;
+    wparams.suppress_nst = true;
     wparams.temperature_inc = 0.0f;
 
     if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
