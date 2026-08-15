@@ -32,6 +32,11 @@
             app:summary="@string/auto_punctuation_summary"
             app:defaultValue="true" />
 
+        <Preference
+            app:key="filter_words"
+            app:title="@string/filter_words"
+            app:summary="@string/filter_words_summary" />
+
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Feedback">

@@ -11,6 +11,7 @@ object Settings {
     private const val KEY_AUTO_CAPITALIZE = "auto_capitalize"
     private const val KEY_AUTO_PUNCTUATION = "auto_punctuation"
     private const val KEY_HAPTICS = "haptics"
+    private const val KEY_FILTER_WORDS = "filter_words"
 
     fun init(context: Context) {
         SecurePrefs.init(context)
@@ -40,4 +41,28 @@ object Settings {
 
     fun hapticsEnabled(): Boolean = SecurePrefs.getBoolean(KEY_HAPTICS, true)
     fun setHapticsEnabled(enabled: Boolean) = SecurePrefs.putBoolean(KEY_HAPTICS, enabled)
+
+    // User-defined words to strip when they appear at the start of a transcription.
+    // Stored as a comma-separated string.
+    fun filterWords(): List<String> =
+        SecurePrefs.getString(KEY_FILTER_WORDS, "")
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+    fun setFilterWords(words: List<String>) =
+        SecurePrefs.putString(KEY_FILTER_WORDS, words.joinToString(",") { it.trim() })
+
+    fun addFilterWord(word: String) {
+        val current = filterWords().toMutableList()
+        val trimmed = word.trim()
+        if (trimmed.isNotEmpty() && trimmed !in current) {
+            current.add(trimmed)
+            setFilterWords(current)
+        }
+    }
+
+    fun removeFilterWord(word: String) {
+        setFilterWords(filterWords().filter { it != word.trim() })
+    }
 }

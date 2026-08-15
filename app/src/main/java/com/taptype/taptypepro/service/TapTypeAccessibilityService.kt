@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.taptype.taptypepro.util.DebugLog
+import com.taptype.taptypepro.util.Settings
 import com.taptype.taptypepro.view.FloatingOrb
 
 class TapTypeAccessibilityService : android.accessibilityservice.AccessibilityService() {
@@ -87,9 +88,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     }
 
     fun injectText(text: String) {
-        // Final safety net: strip a leading "Message" hallucination right before
-        // pasting, and trim any leading whitespace.
-        val clean = stripLeadingMessage(text)
+        // Final safety net: strip any leading filler word (user-configured plus
+        // the built-in "Message" hallucination) right before pasting, and trim
+        // leading whitespace.
+        val clean = stripLeadingWords(text)
         if (clean.isEmpty()) return
 
         // Get a FRESH node so we read the field's current text, not a stale snapshot.
@@ -113,16 +115,35 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         }
     }
 
-    // Removes a leading "Message" / "Message inaudible" word (case-insensitive)
-    // and trims leading whitespace, right before the text is written.
-    private fun stripLeadingMessage(text: String): String {
+    // Removes a leading word (case-insensitive, standalone) if it matches the
+    // user-configured filter list or the built-in "message"/"message inaudible"
+    // hallucination. Trims leading whitespace afterwards.
+    private fun stripLeadingWords(text: String): String {
         var s = text.trimStart()
-        val regex = Regex(
-            "^(?:message\\s+inaudible|message)\\b[\\s.,!?;:]*",
-            RegexOption.IGNORE_CASE
-        )
-        s = regex.replaceFirst(s, "")
-        return s.trimStart()
+
+        val builtIn = listOf("message inaudible", "message")
+        val userWords = Settings.filterWords()
+
+        var changed = true
+        while (changed && s.isNotEmpty()) {
+            changed = false
+            for (word in builtIn + userWords) {
+                if (word.isBlank()) continue
+                // Match the word at the very start, followed by a word boundary,
+                // then swallow any trailing whitespace/punctuation.
+                val regex = Regex(
+                    "^" + Regex.escape(word) + "\\b[\\s.,!?;:]*",
+                    RegexOption.IGNORE_CASE
+                )
+                val after = regex.replaceFirst(s, "")
+                if (after != s) {
+                    s = after.trimStart()
+                    changed = true
+                    break
+                }
+            }
+        }
+        return s
     }
 
     private fun getFreshInputNode(): AccessibilityNodeInfo? {

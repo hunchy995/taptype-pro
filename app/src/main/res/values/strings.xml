@@ -20,6 +20,12 @@
     <string name="auto_punctuation_summary">Add a period at the end if missing</string>
     <string name="haptics">Haptic feedback</string>
     <string name="haptics_summary">Vibrate when recording starts and stops</string>
+    <string name="filter_words">Removed leading words</string>
+    <string name="filter_words_summary">Words removed when they appear at the start of a transcription</string>
+    <string name="filter_words_add">Add word</string>
+    <string name="filter_words_add_hint">Enter a word to remove (e.g. Message)</string>
+    <string name="filter_words_empty">No words added yet</string>
+    <string name="filter_words_manage_title">Removed leading words</string>
     <string name="no_model">No model active — download one below</string>
     <string name="recording">Recording…</string>
     <string name="tap_to_record">Tap to record</string>
