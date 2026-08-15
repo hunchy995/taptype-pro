@@ -14,14 +14,28 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.LinearInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import android.widget.ProgressBar
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.service.RecordingForegroundService
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.Settings
+import kotlin.math.PI
+import kotlin.math.sin
 
+/**
+ * Floating dictation button with Apple-inspired motion design.
+ *
+ * SAFETY RULES (do not break — these caused repeated button failures):
+ *  - NEVER animate WindowManager.LayoutParams. Only animate view properties
+ *    (scaleX/scaleY/alpha/rotation) on the inflated child views.
+ *  - The OnTouchListener drag coordinate math (ACTION_DOWN/ACTION_MOVE/ACTION_UP
+ *    moving params.x/params.y via updateViewLayout) must stay byte-for-byte
+ *    identical. Press/release scale feedback is layered on top without touching
+ *    those coordinates.
+ */
 @SuppressLint("InflateParams")
 class FloatingOrb(private val context: Context) {
     private val TAG = "FloatingOrb"
@@ -57,35 +71,42 @@ class FloatingOrb(private val context: Context) {
     private var touchY = 0f
     private val handler = Handler(Looper.getMainLooper())
 
-    // Pulsing red ring while recording
+    // Apple-style spring for state transitions: gentle overshoot then settle.
+    private val spring = OvershootInterpolator(1.8f)
+    private val quickOut = DecelerateInterpolator(2.5f)
+
+    // --- Recording: sonar pulse ring (eased, organic expansion + fade) ---
     private val ringAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 1200
+        duration = 1600
         repeatMode = ValueAnimator.RESTART
         repeatCount = ValueAnimator.INFINITE
-        interpolator = LinearInterpolator()
+        interpolator = DecelerateInterpolator(1.6f)
         addUpdateListener { animator ->
-            val progress = animator.animatedValue as Float
-            val scale = 1f + 0.30f * progress
+            val p = animator.animatedValue as Float
+            val scale = 1f + 0.55f * p
             ringView.scaleX = scale
             ringView.scaleY = scale
-            ringView.alpha = 1f - progress
+            ringView.alpha = (1f - p) * 0.85f
         }
     }
 
-    // Breathing scale on the orb itself while recording
-    private val orbBreathing = ValueAnimator.ofFloat(1f, 1.12f, 1f).apply {
-        duration = 1400
+    // --- Recording: smooth sine "breathing" on the orb itself ---
+    private val orbBreathing = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 2000
         repeatMode = ValueAnimator.RESTART
         repeatCount = ValueAnimator.INFINITE
-        interpolator = LinearInterpolator()
+        interpolator = android.view.animation.LinearInterpolator()
         addUpdateListener { animator ->
-            val scale = animator.animatedValue as Float
+            val p = animator.animatedValue as Float
+            val scale = 1f + 0.06f * sin(p * 2.0 * PI).toFloat()
             orbImage.scaleX = scale
             orbImage.scaleY = scale
         }
     }
 
     init {
+        // Drag logic — KEEP BYTE-FOR-BYTE IDENTICAL. Only the scale-feedback calls
+        // on ACTION_DOWN / ACTION_UP are added around it.
         view.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -94,19 +115,27 @@ class FloatingOrb(private val context: Context) {
                     initialY = params.y
                     touchX = event.rawX
                     touchY = event.rawY
+                    if (!isRecording && !isProcessing) pressIn()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - touchX
                     val dy = event.rawY - touchY
-                    if (kotlin.math.abs(dx) > 20 || kotlin.math.abs(dy) > 20) isDragging = true
+                    if (kotlin.math.abs(dx) > 20 || kotlin.math.abs(dy) > 20) {
+                        if (!isDragging) pressOut() // started dragging: un-press
+                        isDragging = true
+                    }
                     params.x = (initialX + dx).toInt()
                     params.y = (initialY + dy).toInt()
                     windowManager.updateViewLayout(view, params)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!isDragging) onOrbTapped()
+                    if (!isDragging) {
+                        onOrbTapped()
+                    } else {
+                        pressOut()
+                    }
                     true
                 }
                 else -> false
@@ -114,11 +143,38 @@ class FloatingOrb(private val context: Context) {
         }
     }
 
+    // --- Press feedback: scale down on touch, spring back on release ---
+    private fun pressIn() {
+        orbImage.animate().cancel()
+        orbImage.animate()
+            .scaleX(0.88f).scaleY(0.88f)
+            .setDuration(110)
+            .setInterpolator(quickOut)
+            .start()
+    }
+
+    private fun pressOut() {
+        orbImage.animate().cancel()
+        orbImage.animate()
+            .scaleX(1f).scaleY(1f)
+            .setDuration(320)
+            .setInterpolator(spring)
+            .start()
+    }
+
     fun show() {
         if (isShowing) return
         try {
             windowManager.addView(view, params)
             isShowing = true
+            // Gentle Apple-style settle on first appearance.
+            orbImage.scaleX = 0f
+            orbImage.scaleY = 0f
+            orbImage.animate()
+                .scaleX(1f).scaleY(1f)
+                .setDuration(380)
+                .setInterpolator(spring)
+                .start()
             DebugLog.d(TAG, "Orb shown")
         } catch (e: Exception) {
             DebugLog.e(TAG, "Show orb failed", e)
@@ -148,16 +204,16 @@ class FloatingOrb(private val context: Context) {
 
     private fun startRecording() {
         isRecording = true
-        // Switch icon and background to recording state
-        orbImage.setImageResource(R.drawable.ic_stop)
-        orbImage.setBackgroundResource(R.drawable.orb_background_recording)
-        // Start pulse ring + breathing
-        ringView.visibility = View.VISIBLE
-        ringView.scaleX = 1f
-        ringView.scaleY = 1f
-        ringAnimator.start()
-        orbBreathing.start()
-        // Tactile feedback
+        pressOut()
+        // Crossfade the icon to the stop glyph, then start the living animations.
+        crossfadeIcon(R.drawable.ic_stop, R.drawable.orb_background_recording) {
+            ringView.visibility = View.VISIBLE
+            ringView.scaleX = 1f
+            ringView.scaleY = 1f
+            ringView.alpha = 0.85f
+            ringAnimator.start()
+            orbBreathing.start()
+        }
         hapticStart()
         RecordingForegroundService.start(context)
         DebugLog.i(TAG, "Orb: start recording requested")
@@ -165,32 +221,99 @@ class FloatingOrb(private val context: Context) {
 
     private fun stopRecording() {
         isRecording = false
-        // Cancel animations and reset scale
         ringAnimator.cancel()
         orbBreathing.cancel()
         ringView.visibility = View.GONE
-        orbImage.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-        // Show loading spinner while the service transcribes
+        // Snap scale back to 1 with a small spring, then show the processing spinner.
+        orbImage.animate().cancel()
+        orbImage.animate()
+            .scaleX(1f).scaleY(1f)
+            .setDuration(200)
+            .setInterpolator(quickOut)
+            .start()
         showProcessing()
-        // Tactile feedback
         hapticStop()
         RecordingForegroundService.stop(context)
         DebugLog.i(TAG, "Orb: stop recording requested")
     }
 
+    /**
+     * Fades the orb icon out, swaps the drawable, then springs it back in.
+     * Gives a smooth Apple-style morph between mic/stop instead of a hard swap.
+     */
+    private fun crossfadeIcon(newIcon: Int, newBackground: Int, onDone: () -> Unit) {
+        orbImage.animate().cancel()
+        orbImage.animate()
+            .alpha(0f)
+            .scaleX(0.85f).scaleY(0.85f)
+            .setDuration(110)
+            .setInterpolator(quickOut)
+            .withEndAction {
+                orbImage.setImageResource(newIcon)
+                orbImage.setBackgroundResource(newBackground)
+                orbImage.animate()
+                    .alpha(1f)
+                    .scaleX(1f).scaleY(1f)
+                    .setDuration(360)
+                    .setInterpolator(spring)
+                    .withEndAction(onDone)
+                    .start()
+            }
+            .start()
+    }
+
     private fun showProcessing() {
         isProcessing = true
-        orbImage.setImageDrawable(null)           // hide mic/stop icon
-        orbImage.setBackgroundResource(R.drawable.orb_background)
-        spinner.visibility = View.VISIBLE
+        // Fade the icon out and crossfade the spinner in.
+        orbImage.animate().cancel()
+        orbImage.animate()
+            .alpha(0f)
+            .setDuration(130)
+            .setInterpolator(quickOut)
+            .withEndAction {
+                orbImage.setImageDrawable(null)
+                orbImage.setBackgroundResource(R.drawable.orb_background)
+                orbImage.alpha = 1f
+                spinner.alpha = 0f
+                spinner.visibility = View.VISIBLE
+                spinner.animate()
+                    .alpha(1f)
+                    .scaleX(1f).scaleY(1f)
+                    .setDuration(260)
+                    .setInterpolator(spring)
+                    .start()
+            }
+            .start()
     }
 
     fun onTranscriptionComplete() {
         handler.post {
             isProcessing = false
-            spinner.visibility = View.GONE
-            orbImage.setImageResource(R.drawable.ic_mic)
-            orbImage.setBackgroundResource(R.drawable.orb_background)
+            // Crossfade the spinner out and the mic icon back in.
+            spinner.animate().cancel()
+            spinner.animate()
+                .alpha(0f)
+                .scaleX(0.8f).scaleY(0.8f)
+                .setDuration(140)
+                .setInterpolator(quickOut)
+                .withEndAction {
+                    spinner.visibility = View.GONE
+                    spinner.alpha = 1f
+                    spinner.scaleX = 1f
+                    spinner.scaleY = 1f
+                    orbImage.setImageResource(R.drawable.ic_mic)
+                    orbImage.setBackgroundResource(R.drawable.orb_background)
+                    orbImage.alpha = 0f
+                    orbImage.scaleX = 0.9f
+                    orbImage.scaleY = 0.9f
+                    orbImage.animate()
+                        .alpha(1f)
+                        .scaleX(1f).scaleY(1f)
+                        .setDuration(340)
+                        .setInterpolator(spring)
+                        .start()
+                }
+                .start()
             DebugLog.i(TAG, "Orb: transcription complete, back to idle")
         }
     }
