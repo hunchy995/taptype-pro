@@ -2,7 +2,6 @@ package com.taptype.taptypepro.ui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.preference.ListPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.taptype.taptypepro.R
@@ -23,11 +22,6 @@ class SettingsActivity : AppCompatActivity() {
 
             findPreference<SwitchPreferenceCompat>("auto_stop")?.setOnPreferenceChangeListener { _, newValue ->
                 Settings.setAutoStop(newValue as Boolean)
-                true
-            }
-
-            findPreference<ListPreference>("orb_size")?.setOnPreferenceChangeListener { _, newValue ->
-                Settings.setOrbSizeDp((newValue as String).toInt())
                 true
             }
 

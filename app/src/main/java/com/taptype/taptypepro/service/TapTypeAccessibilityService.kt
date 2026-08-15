@@ -50,6 +50,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         orb?.onTranscriptionComplete()
     }
 
+    fun onOrbSizeChanged(dp: Int) {
+        orb?.onOrbSizeChanged(dp)
+    }
+
     private fun updateOverlayState() {
         ensureOrb()
         val rootNode = rootInActiveWindow
@@ -83,12 +87,17 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     }
 
     fun injectText(text: String) {
+        // Final safety net: strip a leading "Message" hallucination right before
+        // pasting, and trim any leading whitespace.
+        val clean = stripLeadingMessage(text)
+        if (clean.isEmpty()) return
+
         // Get a FRESH node so we read the field's current text, not a stale snapshot.
         val node = getFreshInputNode() ?: return
         try {
             val currentText = node.text?.toString() ?: ""
-            DebugLog.d(TAG, "injectText: current='$currentText', new='$text'")
-            val combined = if (currentText.isBlank()) text else "$currentText $text"
+            DebugLog.d(TAG, "injectText: current='$currentText', new='$clean'")
+            val combined = if (currentText.isBlank()) clean else "$currentText $clean"
             val args = Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, combined)
             }
@@ -96,12 +105,24 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
                 DebugLog.i(TAG, "Text injection succeeded (SET_TEXT)")
                 return
             }
-            fallbackClipboardPaste(text, node)
+            fallbackClipboardPaste(clean, node)
         } catch (e: Exception) {
             DebugLog.e(TAG, "Text injection failed", e)
         } finally {
             node.recycle()
         }
+    }
+
+    // Removes a leading "Message" / "Message inaudible" word (case-insensitive)
+    // and trims leading whitespace, right before the text is written.
+    private fun stripLeadingMessage(text: String): String {
+        var s = text.trimStart()
+        val regex = Regex(
+            "^(?:message\\s+inaudible|message)\\b[\\s.,!?;:]*",
+            RegexOption.IGNORE_CASE
+        )
+        s = regex.replaceFirst(s, "")
+        return s.trimStart()
     }
 
     private fun getFreshInputNode(): AccessibilityNodeInfo? {

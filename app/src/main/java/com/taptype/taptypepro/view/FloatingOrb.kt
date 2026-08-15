@@ -195,6 +195,25 @@ class FloatingOrb(private val context: Context) {
         }
     }
 
+    // Live-resize the running overlay window to the new dp size.
+    fun onOrbSizeChanged(dp: Int) {
+        handler.post {
+            try {
+                val px = (dp * context.resources.displayMetrics.density).toInt()
+                params.width = px
+                params.height = px
+                // Resize the inner content too so icon/ring scale with the window.
+                view.layoutParams = params
+                if (isShowing) {
+                    windowManager.updateViewLayout(view, params)
+                }
+                DebugLog.i(TAG, "Orb resized to ${dp}dp ($px px)")
+            } catch (e: Exception) {
+                DebugLog.e(TAG, "Resize orb failed", e)
+            }
+        }
+    }
+
     private fun hapticStart() {
         if (!Settings.hapticsEnabled()) return
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return

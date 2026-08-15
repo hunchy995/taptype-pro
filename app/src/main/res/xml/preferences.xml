@@ -4,12 +4,10 @@
 
     <PreferenceCategory app:title="Appearance">
 
-        <ListPreference
+        <com.taptype.taptypepro.ui.OrbSizePreference
             app:key="orb_size"
             app:title="@string/orb_size"
             app:summary="@string/orb_size_summary"
-            app:entries="@array/orb_size_entries"
-            app:entryValues="@array/orb_size_values"
             app:defaultValue="56" />
 
     </PreferenceCategory>
