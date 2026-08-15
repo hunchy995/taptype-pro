@@ -44,6 +44,8 @@ class FloatingOrb(private val context: Context) {
     private val view: View = LayoutInflater.from(context).inflate(R.layout.floating_orb, null)
     private val orbImage = view.findViewById<ImageView>(R.id.orbImage)
     private val spinner = view.findViewById<ProgressBar>(R.id.orbSpinner)
+    private val levelTrack = view.findViewById<View>(R.id.levelTrack)
+    private val levelFill = view.findViewById<View>(R.id.levelFill)
 
     private val orbSizePx = (Settings.orbSizeDp() * context.resources.displayMetrics.density).toInt()
 
@@ -192,6 +194,10 @@ class FloatingOrb(private val context: Context) {
     private fun startRecording() {
         isRecording = true
         pressOut()
+        // Show the level meter and reset it.
+        levelTrack.visibility = View.VISIBLE
+        levelFill.visibility = View.VISIBLE
+        levelFill.scaleX = 0f
         // Crossfade the icon to the stop glyph, then start the pulse.
         crossfadeIcon(R.drawable.ic_stop, R.drawable.orb_background_recording) {
             orbPulse.start()
@@ -204,6 +210,9 @@ class FloatingOrb(private val context: Context) {
     private fun stopRecording() {
         isRecording = false
         orbPulse.cancel()
+        // Hide the level meter.
+        levelTrack.visibility = View.GONE
+        levelFill.visibility = View.GONE
         // Snap scale back to 1 with a small spring, then show the processing spinner.
         orbImage.animate().cancel()
         orbImage.animate()
@@ -215,6 +224,19 @@ class FloatingOrb(private val context: Context) {
         hapticStop()
         RecordingForegroundService.stop(context)
         DebugLog.i(TAG, "Orb: stop recording requested")
+    }
+
+    // Live audio level (0..1) from the recorder. Fills the level meter bar.
+    // Runs on the main thread; guarded so it only updates while recording.
+    fun onAudioLevel(rms: Float) {
+        handler.post {
+            if (!isRecording) return@post
+            // Map RMS (~0..0.3 for speech) to a 0..1 fill, with a curve so quiet
+            // speech still shows visible movement.
+            val normalized = (rms / 0.12f).coerceIn(0f, 1f)
+            val curved = 1f - (1f - normalized) * (1f - normalized)  // ease-out
+            levelFill.scaleX = curved
+        }
     }
 
     /**

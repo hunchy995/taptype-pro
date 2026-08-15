@@ -89,9 +89,17 @@ class RecordingForegroundService : Service() {
         serviceScope.launch {
             recorder.recordFlow().collect { chunk ->
                 if (Settings.autoStopEnabled()) checkSilence(chunk)
+                // Push live audio level to the orb meter (throttled to ~20Hz).
+                val now = System.currentTimeMillis()
+                if (now - lastLevelPushMs >= 50) {
+                    lastLevelPushMs = now
+                    TapTypeAccessibilityService.instance?.onAudioLevel(recorder.currentRms())
+                }
             }
         }
     }
+
+    private var lastLevelPushMs = 0L
 
     private fun stopRecording() {
         if (!isRunning) return
@@ -143,20 +151,42 @@ class RecordingForegroundService : Service() {
         }
     }
 
+    // Smarter post-processing for CTC engines (Parakeet) that output raw
+    // lowercase with no punctuation. Applied after transcription, regardless of engine.
     private fun applyTextSettings(raw: String): String {
         var text = raw.trim()
         if (text.isEmpty()) return ""
 
+        // Fix standalone "i" → "I" (very common CTC lowercase artifact).
+        text = Regex("\\bi\\b").replace(text) { "I" }
+
         if (Settings.autoCapitalize()) {
             text = text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
         }
+
         if (Settings.autoPunctuation()) {
             val last = text.lastOrNull()
             if (last != null && last.isLetterOrDigit()) {
-                text += "."
+                text += if (isQuestion(text)) "?" else "."
             }
         }
         return text
+    }
+
+    // Heuristic question detection: first word is a question starter, or the
+    // sentence ends with a question tag ("right", "okay", "correct").
+    private fun isQuestion(text: String): Boolean {
+        val words = text.trim().lowercase().split(Regex("\\s+"))
+        if (words.isEmpty()) return false
+        val first = words.first().trimEnd('?', '.', '!', ',')
+        val questionStarters = setOf(
+            "who", "what", "where", "when", "why", "how",
+            "is", "are", "was", "were", "do", "does", "did",
+            "can", "could", "would", "will", "shall", "should",
+            "may", "might", "have", "has", "had", "am"
+        )
+        val questionTags = setOf("right", "okay", "correct", "yes", "no")
+        return first in questionStarters || words.last().trimEnd('?', '.', '!', ',') in questionTags
     }
 
     private fun checkSilence(chunk: FloatArray) {

@@ -55,6 +55,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         orb?.onOrbSizeChanged(dp)
     }
 
+    fun onAudioLevel(rms: Float) {
+        orb?.onAudioLevel(rms)
+    }
+
     private fun updateOverlayState() {
         ensureOrb()
         val rootNode = rootInActiveWindow
