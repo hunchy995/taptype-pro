@@ -20,6 +20,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.service.RecordingForegroundService
+import com.taptype.taptypepro.service.TapTypeAccessibilityService
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.Settings
 import kotlin.math.PI
@@ -46,9 +47,6 @@ class FloatingOrb(private val context: Context) {
     private val spinner = view.findViewById<ProgressBar>(R.id.orbSpinner)
     private val levelTrack = view.findViewById<View>(R.id.levelTrack)
     private val levelFill = view.findViewById<View>(R.id.levelFill)
-
-    // Live transcription preview bubble (separate overlay window).
-    private val preview = FloatingPreview(context)
 
     private val orbSizePx = (Settings.orbSizeDp() * context.resources.displayMetrics.density).toInt()
 
@@ -187,7 +185,6 @@ class FloatingOrb(private val context: Context) {
 
     fun destroy() {
         hide()
-        preview.destroy()
     }
 
     private fun onOrbTapped() {
@@ -198,6 +195,9 @@ class FloatingOrb(private val context: Context) {
     private fun startRecording() {
         isRecording = true
         pressOut()
+        // Capture the field's current text so live partials stream-replace the
+        // field without clobbering what was already there.
+        TapTypeAccessibilityService.instance?.beginStreaming()
         // Show the level meter and reset it.
         levelTrack.visibility = View.VISIBLE
         levelFill.visibility = View.VISIBLE
@@ -214,7 +214,6 @@ class FloatingOrb(private val context: Context) {
     private fun stopRecording() {
         isRecording = false
         orbPulse.cancel()
-        preview.hide()
         // Hide the level meter.
         levelTrack.visibility = View.GONE
         levelFill.visibility = View.GONE
@@ -244,13 +243,8 @@ class FloatingOrb(private val context: Context) {
         }
     }
 
-    // Live partial transcription preview. Called by the service while recording.
-    fun onPartialTranscription(text: String) {
-        handler.post {
-            if (!isRecording || text.isBlank()) return@post
-            preview.show(text, params.x, params.y)
-        }
-    }
+    // Live partial transcription is injected directly into the focused field by
+    // the accessibility service; the orb no longer shows a preview bubble.
 
     /**
      * Fades the orb icon out, swaps the drawable, then springs it back in.
@@ -304,7 +298,6 @@ class FloatingOrb(private val context: Context) {
     fun onTranscriptionComplete() {
         handler.post {
             isProcessing = false
-            preview.hide()
             // Crossfade the spinner out and the mic icon back in.
             spinner.animate().cancel()
             spinner.animate()

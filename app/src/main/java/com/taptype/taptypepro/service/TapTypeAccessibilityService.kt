@@ -20,6 +20,11 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     private var orb: FloatingOrb? = null
     private var currentFocusedNode: AccessibilityNodeInfo? = null
 
+    // Text present in the focused field before the current dictation session
+    // began. null = no active streaming session. Live partials and the final
+    // transcription REPLACE the field with (prefix + text) instead of appending.
+    private var streamingPrefix: String? = null
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
@@ -48,6 +53,7 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     }
 
     fun onTranscriptionComplete() {
+        streamingPrefix = null
         orb?.onTranscriptionComplete()
     }
 
@@ -60,7 +66,11 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     }
 
     fun onPartialTranscription(text: String) {
-        orb?.onPartialTranscription(text)
+        // Live partial goes straight into the focused text field in real time
+        // (no floating bubble). Each partial REPLACES the field with prefix + partial.
+        val clean = stripLeadingWords(text)
+        if (clean.isEmpty()) return
+        injectTextReplace(clean, allowPasteFallback = false)
     }
 
     private fun updateOverlayState() {
@@ -95,12 +105,65 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
                 name.contains("Compose", ignoreCase = true)
     }
 
+    // Captures the focused field's current text as the streaming prefix. Called
+    // when a recording starts so live partial/final injections can REPLACE the
+    // field (prefix + transcription) without clobbering text typed before dictation.
+    fun beginStreaming() {
+        val node = getFreshInputNode()
+        streamingPrefix = if (node == null) {
+            ""
+        } else {
+            try {
+                val current = node.text?.toString() ?: ""
+                val hint = node.hintText?.toString() ?: ""
+                val showingHint = node.isShowingHintText
+                val filtered = stripLeadingWords(current).trimEnd()
+                if (showingHint || (current.isNotBlank() && current == hint)) "" else filtered
+            } finally {
+                node.recycle()
+            }
+        }
+    }
+
+    // Replaces the focused field's content with (prefix + clean). Used for both
+    // live partials and the final injection when a streaming session is active.
+    // For partials we use SET_TEXT only (a blind paste would append and duplicate
+    // text across partials); the final injection may fall back to paste.
+    private fun injectTextReplace(clean: String, allowPasteFallback: Boolean) {
+        val node = getFreshInputNode() ?: return
+        try {
+            val prefix = streamingPrefix ?: ""
+            val combined = if (prefix.isBlank()) clean else "$prefix $clean"
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, combined)
+            }
+            if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+                DebugLog.d(TAG, "Replace injection: '$combined'")
+                return
+            }
+            if (allowPasteFallback) fallbackClipboardPaste(clean, node)
+        } catch (e: Exception) {
+            DebugLog.e(TAG, "Replace injection failed", e)
+        } finally {
+            node.recycle()
+        }
+    }
+
     fun injectText(text: String) {
         // Final safety net: strip any leading filler word (user-configured plus
         // the built-in "Message" hallucination) right before pasting, and trim
         // leading whitespace.
         val clean = stripLeadingWords(text)
         if (clean.isEmpty()) return
+
+        // If a streaming session is active, the field already holds the last
+        // partial (prefix + partial). Replace it with prefix + FINAL text rather
+        // than appending, which would duplicate the partial. (streamingPrefix is
+        // reset afterwards in onTranscriptionComplete().)
+        if (streamingPrefix != null) {
+            injectTextReplace(clean, allowPasteFallback = true)
+            return
+        }
 
         // Get a FRESH node so we read the field's current text, not a stale snapshot.
         val node = getFreshInputNode() ?: return

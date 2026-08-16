@@ -103,18 +103,19 @@ class RecordingForegroundService : Service() {
             }
         }
 
-        // Live partial transcription — preview only. Runs on the single-thread
-        // dispatcher so it never overlaps the final transcription. The final
-        // injected text is still a full-buffer transcription, so this preview
-        // cannot degrade output quality.
+        // Live partial transcription — injected straight into the focused field
+        // in real time. Runs on the single-thread dispatcher so it never overlaps
+        // the final transcription. The final injected text is still a full-buffer
+        // transcription (which replaces the last partial), so partials never
+        // degrade the final output quality.
         partialJob = serviceScope.launch {
-            var lastPreviewLen = 0
+            var lastPartialLen = 0
             while (isRunning) {
                 delay(900)
                 if (!isRunning) break
                 val snap = recorder.snapshot()
-                // Only preview if there's meaningful new audio (~1s + 0.4s new).
-                if (snap.size < 16000 || snap.size < lastPreviewLen + 6400) continue
+                // Only transcribe if there's meaningful new audio (~1s + 0.4s new).
+                if (snap.size < 16000 || snap.size < lastPartialLen + 6400) continue
                 val engine = withContext(transcribeDispatcher) {
                     EngineManager.getActiveEngine(this@RecordingForegroundService)
                 }
@@ -123,7 +124,7 @@ class RecordingForegroundService : Service() {
                     runCatching { applyTextSettings(engine.transcribe(snap)) }.getOrDefault("")
                 }
                 if (partial.isNotBlank()) {
-                    lastPreviewLen = snap.size
+                    lastPartialLen = snap.size
                     withContext(Dispatchers.Main) {
                         TapTypeAccessibilityService.instance?.onPartialTranscription(partial)
                     }
