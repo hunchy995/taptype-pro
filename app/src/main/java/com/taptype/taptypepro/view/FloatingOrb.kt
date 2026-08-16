@@ -152,18 +152,45 @@ class FloatingOrb(private val context: Context) {
             .start()
     }
 
+    // Vibrant poppy intro/outro interpolators.
+    private val poppyBounce = OvershootInterpolator(2.4f)
+    private val poppyAnticipate = android.view.animation.AnticipateInterpolator(1.6f)
+
+    /**
+     * Sexy vibrant entrance: the orb pops in from 0 with a strong overshoot,
+     * a quick rotation wiggle, and a bright glow flash. All view-property only.
+     */
     fun show() {
         if (isShowing) return
         try {
             windowManager.addView(view, params)
             isShowing = true
-            // Gentle Apple-style settle on first appearance.
             orbImage.scaleX = 0f
             orbImage.scaleY = 0f
+            orbImage.alpha = 0f
+            orbImage.rotation = -35f
+            view.alpha = 1f
+            // Phase 1: fade in + rotate straight quickly.
             orbImage.animate()
-                .scaleX(1f).scaleY(1f)
-                .setDuration(380)
-                .setInterpolator(spring)
+                .alpha(1f)
+                .rotation(0f)
+                .setDuration(180)
+                .setInterpolator(quickOut)
+                .withEndAction {
+                    // Phase 2: big bouncy pop to settle.
+                    orbImage.animate()
+                        .scaleX(1.12f).scaleY(1.12f)
+                        .setDuration(160)
+                        .setInterpolator(quickOut)
+                        .withEndAction {
+                            orbImage.animate()
+                                .scaleX(1f).scaleY(1f)
+                                .setDuration(340)
+                                .setInterpolator(poppyBounce)
+                                .start()
+                        }
+                        .start()
+                }
                 .start()
             DebugLog.d(TAG, "Orb shown")
         } catch (e: Exception) {
@@ -171,12 +198,40 @@ class FloatingOrb(private val context: Context) {
         }
     }
 
+    /**
+     * Snappy vibrant exit: the orb anticipates down + spins out + fades,
+     * then is actually removed from the window. Keeps view-property-only safety.
+     */
     fun hide() {
         if (!isShowing) return
         try {
             if (isRecording) stopRecording()
-            windowManager.removeView(view)
-            isShowing = false
+            orbImage.animate().cancel()
+            orbImage.animate()
+                .scaleX(1.15f).scaleY(1.15f)
+                .rotation(12f)
+                .setDuration(120)
+                .setInterpolator(quickOut)
+                .withEndAction {
+                    orbImage.animate()
+                        .scaleX(0f).scaleY(0f)
+                        .rotation(-45f)
+                        .alpha(0f)
+                        .setDuration(260)
+                        .setInterpolator(poppyAnticipate)
+                        .withEndAction {
+                            try {
+                                windowManager.removeView(view)
+                                isShowing = false
+                                orbImage.rotation = 0f
+                                orbImage.alpha = 1f
+                            } catch (e: Exception) {
+                                DebugLog.e(TAG, "Remove view failed", e)
+                            }
+                        }
+                        .start()
+                }
+                .start()
             DebugLog.d(TAG, "Orb hidden")
         } catch (e: Exception) {
             DebugLog.e(TAG, "Hide orb failed", e)

@@ -196,20 +196,145 @@ class RecordingForegroundService : Service() {
         var text = raw.trim()
         if (text.isEmpty()) return ""
 
-        // Fix standalone "i" → "I" (very common CTC lowercase artifact).
+        // 1. Strip leading hallucinated fillers (Message, thank you, etc.).
+        text = stripLeadingFillers(text)
+
+        // 2. Fix standalone "i" → "I" (very common CTC lowercase artifact).
         text = Regex("\\bi\\b").replace(text) { "I" }
 
+        // 3. Normalize whitespace and remove duplicate words that whisper sometimes emits.
+        text = Regex("\\s+").replace(text, " ")
+        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { it.groupValues[1] }
+
+        // 4. Smart punctuation: split run-on speech into sentences/clauses.
+        text = insertNaturalPunctuation(text)
+
         if (Settings.autoCapitalize()) {
-            text = text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+            text = capitalizeSentences(text)
         }
 
         if (Settings.autoPunctuation()) {
-            val last = text.lastOrNull()
-            if (last != null && last.isLetterOrDigit()) {
-                text += if (isQuestion(text)) "?" else "."
+            text = ensureTerminalPunctuation(text)
+        } else {
+            // Even if auto punctuation is disabled, trim trailing junk.
+            text = text.trimEnd { it in ".,!?;:" }
+        }
+        return text.trim()
+    }
+
+    /** Remove common leading hallucinated tokens (case-insensitive, anchored). */
+    private fun stripLeadingFillers(text: String): String {
+        var s = text
+        val fillers = listOf(
+            "message inaudible", "message",
+            "thank you for watching", "thanks for watching", "thank you",
+            "please subscribe", "subscribe",
+            "um", "uh", "er", "ah", "hmm", "like", "you know", "i mean"
+        )
+        var changed = true
+        while (changed && s.isNotEmpty()) {
+            changed = false
+            for (word in fillers) {
+                if (word.isBlank()) continue
+                val regex = Regex("^" + Regex.escape(word) + "\\b[\\s.,!?;:]*", RegexOption.IGNORE_CASE)
+                val after = regex.replaceFirst(s, "")
+                if (after != s) { s = after.trimStart(); changed = true; break }
             }
         }
-        return text
+        return s.trimStart()
+    }
+
+    /**
+     * Insert commas and periods into long run-on sentences using simple heuristics.
+     * This is intentionally conservative — we only add punctuation where speech has a
+     * strong natural pause marker (long conjunctions/adverbs) or the sentence is very long.
+     */
+    private fun insertNaturalPunctuation(text: String): String {
+        // If the engine already provided punctuation, trust it but still fix spacing.
+        if (Regex("[.!?]").containsMatchIn(text)) {
+            return fixPunctuationSpacing(text)
+        }
+
+        val words = text.split(" ").toMutableList()
+        if (words.size < 4) return text
+
+        val result = StringBuilder()
+        var wordsSinceBreak = 0
+        var i = 0
+        while (i < words.size) {
+            val word = words[i]
+            val lower = word.lowercase()
+            result.append(word)
+
+            // Strong pause words → period after if enough words have passed.
+            val breakWords = setOf(
+                "then", "next", "after", "finally", "so", "therefore", "however",
+                "anyway", "also", "plus", "besides", "meanwhile", "otherwise"
+            )
+            if (wordsSinceBreak >= 6 && lower in breakWords && i < words.size - 2) {
+                result.append(". ")
+                wordsSinceBreak = 0
+                i++
+                continue
+            }
+
+            // Conjunctions/clause markers → comma if mid-sentence.
+            val commaWords = setOf(
+                "and", "but", "or", "so", "because", "when", "while", "although",
+                "though", "if", "since", "unless", "before", "after", "which", "who"
+            )
+            if (wordsSinceBreak in 4..11 && lower in commaWords && i < words.size - 1) {
+                result.append(", ")
+                wordsSinceBreak = 0
+                i++
+                continue
+            }
+
+            // Long sentence with no marker? Force a period.
+            if (wordsSinceBreak >= 14 && i < words.size - 2) {
+                result.append(". ")
+                wordsSinceBreak = 0
+                i++
+                continue
+            }
+
+            if (i < words.size - 1) result.append(" ")
+            wordsSinceBreak++
+            i++
+        }
+
+        var cleaned = result.toString()
+        // Clean up duplicate punctuation/spaces left by the algorithm.
+        cleaned = Regex("\\s+").replace(cleaned, " ")
+        cleaned = Regex("\\s([.,!?;:])").replace(cleaned, "$1")
+        cleaned = Regex("([.,!?;:]){2,}").replace(cleaned, "$1")
+        return cleaned.trim()
+    }
+
+    /** Fix spacing around existing punctuation so "word . word" becomes "word. word". */
+    private fun fixPunctuationSpacing(text: String): String {
+        var cleaned = text
+        cleaned = Regex("\\s+").replace(cleaned, " ")
+        cleaned = Regex("\\s([.,!?;:])").replace(cleaned, "$1")
+        cleaned = Regex("([.,!?;:])\\s*").replace(cleaned) { m -> m.groupValues[1] + " " }
+        cleaned = Regex("([.,!?;:]){2,}").replace(cleaned, "$1")
+        return cleaned.trim()
+    }
+
+    /** Capitalize the first letter of every sentence. */
+    private fun capitalizeSentences(text: String): String {
+        return Regex("(^|[.!?]\\s+)([a-z])").replace(text) { m ->
+            m.groupValues[1] + m.groupValues[2].uppercase()
+        }
+    }
+
+    /** Make sure the final sentence ends with . or ? depending on question detection. */
+    private fun ensureTerminalPunctuation(text: String): String {
+        val trimmed = text.trimEnd { it in ".,!?;:" }
+        if (trimmed.isEmpty()) return ""
+        val lastChar = trimmed.last()
+        if (!lastChar.isLetterOrDigit()) return trimmed
+        return trimmed + if (isQuestion(trimmed)) "?" else "."
     }
 
     // Heuristic question detection: first word is a question starter, or the
