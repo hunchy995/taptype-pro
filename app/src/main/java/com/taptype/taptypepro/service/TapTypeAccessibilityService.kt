@@ -3,7 +3,6 @@ package com.taptype.taptypepro.service
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -32,24 +31,7 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         Settings.init(this)
         DebugLog.i(TAG, "Accessibility service connected")
         ensureOrb()
-        updateToggleNotification()
         com.taptype.taptypepro.util.ReenableNotification.hide(this)
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == com.taptype.taptypepro.util.AccessibilityToggleNotification.ACTION_DISABLE) {
-            DebugLog.i(TAG, "Disable requested from notification")
-            disableSelf()
-        }
-        return START_STICKY
-    }
-
-    fun updateToggleNotification() {
-        if (Settings.showToggleNotification()) {
-            com.taptype.taptypepro.util.AccessibilityToggleNotification.show(this)
-        } else {
-            com.taptype.taptypepro.util.AccessibilityToggleNotification.hide(this)
-        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -97,7 +79,6 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
 
     override fun onDestroy() {
         super.onDestroy()
-        com.taptype.taptypepro.util.AccessibilityToggleNotification.hide(this)
         orb?.destroy()
         orb = null
         instance = null
