@@ -4,12 +4,15 @@
     android:layout_height="@dimen/orb_size">
 
     <!-- Main orb -->
+    <!-- layout_margin leaves a transparent buffer so the poppy intro/outro overshoot
+         (scale > 1.0) has room to breathe without being cropped by the window edge. -->
     <ImageView
         android:id="@+id/orbImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
-        android:padding="10dp"
+        android:layout_margin="5dp"
+        android:padding="6dp"
         android:src="@drawable/ic_mic"
         android:background="@drawable/orb_background"
         android:contentDescription="@string/tap_to_record" />
