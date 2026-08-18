@@ -9,6 +9,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.taptype.taptypepro.R
+import com.taptype.taptypepro.service.TapTypeAccessibilityService
 import com.taptype.taptypepro.util.Settings
 
 class SettingsActivity : AppCompatActivity() {
@@ -26,6 +27,13 @@ class SettingsActivity : AppCompatActivity() {
 
             findPreference<SwitchPreferenceCompat>("auto_stop")?.setOnPreferenceChangeListener { _, newValue ->
                 Settings.setAutoStop(newValue as Boolean)
+                true
+            }
+
+            findPreference<SwitchPreferenceCompat>("show_toggle_notification")?.setOnPreferenceChangeListener { _, newValue ->
+                val enabled = newValue as Boolean
+                Settings.setShowToggleNotification(enabled)
+                TapTypeAccessibilityService.instance?.updateToggleNotification()
                 true
             }
 

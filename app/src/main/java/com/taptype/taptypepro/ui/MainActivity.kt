@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: ModelAdapter
 
+    companion object {
+        const val EXTRA_OPEN_ACCESSIBILITY = "open_accessibility"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -35,6 +39,10 @@ class MainActivity : AppCompatActivity() {
         ensurePermissions()
 
         binding.enableAccessibilityBtn.setOnClickListener { openAccessibilitySettings() }
+
+        if (intent?.getBooleanExtra(EXTRA_OPEN_ACCESSIBILITY, false) == true) {
+            openAccessibilitySettings()
+        }
         binding.openSettingsBtn.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         binding.viewHistoryBtn.setOnClickListener { startActivity(Intent(this, HistoryActivity::class.java)) }
         binding.viewDebugBtn.setOnClickListener { startActivity(Intent(this, DebugLogActivity::class.java)) }
@@ -57,6 +65,13 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshUi()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent?.getBooleanExtra(EXTRA_OPEN_ACCESSIBILITY, false) == true) {
+            openAccessibilitySettings()
+        }
     }
 
     private fun ensurePermissions() {

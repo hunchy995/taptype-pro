@@ -49,7 +49,13 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Privacy / Security">
+        <PreferenceCategory app:title="Privacy / Security">
+
+        <SwitchPreferenceCompat
+            app:key="show_toggle_notification"
+            app:title="@string/toggle_notification_setting_title"
+            app:summary="@string/toggle_notification_setting_summary"
+            app:defaultValue="true" />
 
         <Preference
             app:key="blocked_apps"

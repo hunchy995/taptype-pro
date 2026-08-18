@@ -46,6 +46,17 @@
     <string name="blocked_apps_summary">TapType hides the orb and ignores events when these apps are open (try this for banking apps)</string>
     <string name="blocked_apps_add_by_package">Add by package name</string>
     <string name="blocked_apps_package_hint">com.example.bank.app</string>
+    <string name="toggle_notification_setting_title">Quick-disable notification</string>
+    <string name="toggle_notification_setting_summary">Show a persistent notification to turn TapType off before opening banking apps</string>
+    <string name="toggle_notification_channel_name">TapType Quick Disable</string>
+    <string name="toggle_notification_title">TapType Pro active</string>
+    <string name="toggle_notification_text">Tap to disable before opening banking apps</string>
+    <string name="toggle_notification_disable">Disable</string>
+    <string name="tile_taptype_active">TapType on</string>
+    <string name="tile_taptype_inactive">TapType off</string>
+    <string name="reenable_notification_channel_name">TapType Re-enable</string>
+    <string name="reenable_notification_title">TapType Pro is off</string>
+    <string name="reenable_notification_text">Tap here to re-enable accessibility service</string>
     <string name="enable_taptype">Enable TapType Pro</string>
     <string name="accessibility_message">Go to Settings → Accessibility → TapType Pro and enable it. If the toggle is greyed out, open App Info → ⋮ → Allow restricted settings first.</string>
     <string name="open_accessibility">Open Accessibility</string>

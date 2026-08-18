@@ -13,6 +13,7 @@ object Settings {
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_FILTER_WORDS = "filter_words"
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
+    private const val KEY_SHOW_TOGGLE_NOTIFICATION = "show_toggle_notification"
 
     fun init(context: Context) {
         SecurePrefs.init(context)
@@ -92,4 +93,8 @@ object Settings {
     fun removeBlockedPackage(packageName: String) {
         setBlockedPackages(blockedPackages() - packageName.trim())
     }
+
+    // Persistent notification with a one-tap disable action for the accessibility service.
+    fun showToggleNotification(): Boolean = SecurePrefs.getBoolean(KEY_SHOW_TOGGLE_NOTIFICATION, true)
+    fun setShowToggleNotification(enabled: Boolean) = SecurePrefs.putBoolean(KEY_SHOW_TOGGLE_NOTIFICATION, enabled)
 }
