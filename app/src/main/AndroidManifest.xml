@@ -47,6 +47,11 @@
             android:label="@string/history_title"
             android:parentActivityName=".ui.MainActivity" />
 
+        <activity
+            android:name=".ui.BlockedAppsActivity"
+            android:label="@string/blocked_apps_title"
+            android:parentActivityName=".ui.SettingsActivity" />
+
         <service
             android:name=".service.TapTypeAccessibilityService"
             android:exported="true"
@@ -66,5 +71,12 @@
             android:foregroundServiceType="microphone" />
 
     </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
 </manifest>

@@ -12,6 +12,7 @@ object Settings {
     private const val KEY_AUTO_PUNCTUATION = "auto_punctuation"
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_FILTER_WORDS = "filter_words"
+    private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
 
     fun init(context: Context) {
         SecurePrefs.init(context)
@@ -64,5 +65,31 @@ object Settings {
 
     fun removeFilterWord(word: String) {
         setFilterWords(filterWords().filter { it != word.trim() })
+    }
+
+    // Packages for which the accessibility overlay and injection should be
+    // suspended while the app is foreground (e.g. banking apps). The service
+    // itself stays enabled so no manual re-enable is required afterward.
+    fun blockedPackages(): Set<String> =
+        SecurePrefs.getString(KEY_BLOCKED_PACKAGES, "")
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+    fun setBlockedPackages(packages: Set<String>) =
+        SecurePrefs.putString(KEY_BLOCKED_PACKAGES, packages.joinToString(",") { it.trim() })
+
+    fun addBlockedPackage(packageName: String) {
+        val current = blockedPackages().toMutableSet()
+        val trimmed = packageName.trim()
+        if (trimmed.isNotEmpty() && trimmed !in current) {
+            current.add(trimmed)
+            setBlockedPackages(current)
+        }
+    }
+
+    fun removeBlockedPackage(packageName: String) {
+        setBlockedPackages(blockedPackages() - packageName.trim())
     }
 }

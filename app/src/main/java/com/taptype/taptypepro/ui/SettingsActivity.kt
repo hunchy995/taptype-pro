@@ -1,5 +1,6 @@
 package com.taptype.taptypepro.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
@@ -45,6 +46,11 @@ class SettingsActivity : AppCompatActivity() {
 
             findPreference<Preference>("filter_words")?.setOnPreferenceClickListener {
                 showFilterWordsDialog()
+                true
+            }
+
+            findPreference<Preference>("blocked_apps")?.setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), BlockedAppsActivity::class.java))
                 true
             }
         }

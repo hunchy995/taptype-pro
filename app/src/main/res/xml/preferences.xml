@@ -49,4 +49,13 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Privacy / Security">
+
+        <Preference
+            app:key="blocked_apps"
+            app:title="@string/blocked_apps_title"
+            app:summary="@string/blocked_apps_summary" />
+
+    </PreferenceCategory>
+
 </PreferenceScreen>

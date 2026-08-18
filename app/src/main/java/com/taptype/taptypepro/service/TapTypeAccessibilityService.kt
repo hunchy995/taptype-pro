@@ -28,16 +28,51 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        Settings.init(this)
         DebugLog.i(TAG, "Accessibility service connected")
         ensureOrb()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (handleBlockedPackage(event)) return
+
         when (event?.eventType) {
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> updateOverlayState()
         }
     }
+
+    /**
+     * If the foreground app is on the user blocklist, suspend all overlay/injection
+     * behavior while that app is open. The accessibility service itself stays enabled
+     * so no manual re-enable is needed when the user switches back to another app.
+     */
+    private fun handleBlockedPackage(event: AccessibilityEvent?): Boolean {
+        val packageName = event?.packageName?.toString()
+            ?: rootInActiveWindow?.packageName?.toString()
+            ?: return false
+        if (packageName.isBlank() || packageName == this@TapTypeAccessibilityService.packageName) return false
+
+        if (packageName in Settings.blockedPackages()) {
+            if (!isBlockedPackageActive) {
+                DebugLog.i(TAG, "Blocking overlay for package: $packageName")
+                isBlockedPackageActive = true
+                RecordingForegroundService.stop(this)
+                orb?.hide()
+            }
+            return true
+        }
+
+        if (isBlockedPackageActive) {
+            DebugLog.i(TAG, "Unblocked, resuming overlay")
+            isBlockedPackageActive = false
+            // Let the next event re-evaluate focus and show the orb if appropriate.
+            updateOverlayState()
+        }
+        return false
+    }
+
+    private var isBlockedPackageActive = false
 
     override fun onInterrupt() {}
 
