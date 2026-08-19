@@ -15,6 +15,7 @@ import com.taptype.taptypepro.audio.AudioRecorder
 import com.taptype.taptypepro.engine.EngineManager
 import com.taptype.taptypepro.engine.HomophoneMap
 import com.taptype.taptypepro.engine.ModelRegistry
+import com.taptype.taptypepro.engine.NumberNormalizer
 import com.taptype.taptypepro.engine.PunctuationRestorer
 import com.taptype.taptypepro.ui.ModelDownloader
 import com.taptype.taptypepro.util.DebugLog
@@ -208,8 +209,11 @@ class RecordingForegroundService : Service() {
         text = Regex("\\bi\\b").replace(text) { "I" }
 
         // 3. Normalize whitespace and remove duplicate words that whisper sometimes emits.
+        // (Number words are protected so a year like "twenty twenty six" isn't collapsed.)
         text = Regex("\\s+").replace(text, " ")
-        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { it.groupValues[1] }
+        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { m ->
+            if (NumberNormalizer.isNumberWord(m.groupValues[1])) m.value else m.groupValues[1]
+        }
 
         // 4. Smart punctuation: split run-on speech into sentences/clauses.
         text = insertNaturalPunctuation(text)
@@ -369,7 +373,10 @@ class RecordingForegroundService : Service() {
 
         text = stripLeadingFillers(text)
         text = Regex("\\s+").replace(text, " ")
-        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { it.groupValues[1] }
+        if (Settings.autoNumbers()) text = NumberNormalizer.normalize(text)
+        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { m ->
+            if (NumberNormalizer.isNumberWord(m.groupValues[1])) m.value else m.groupValues[1]
+        }
         text = HomophoneMap.apply(text)
 
         val hasPunct = Regex("[.!?]").containsMatchIn(text)

@@ -11,6 +11,7 @@ object Settings {
     private const val KEY_AUTO_CAPITALIZE = "auto_capitalize"
     private const val KEY_AUTO_PUNCTUATION = "auto_punctuation"
     private const val KEY_SMART_PUNCTUATION = "smart_punctuation"
+    private const val KEY_AUTO_NUMBERS = "auto_numbers"
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_FILTER_WORDS = "filter_words"
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
@@ -43,6 +44,10 @@ object Settings {
 
     fun smartPunctuation(): Boolean = SecurePrefs.getBoolean(KEY_SMART_PUNCTUATION, true)
     fun setSmartPunctuation(enabled: Boolean) = SecurePrefs.putBoolean(KEY_SMART_PUNCTUATION, enabled)
+
+    // Convert spoken number words into digits (e.g. "twenty twenty six" -> 2026).
+    fun autoNumbers(): Boolean = SecurePrefs.getBoolean(KEY_AUTO_NUMBERS, true)
+    fun setAutoNumbers(enabled: Boolean) = SecurePrefs.putBoolean(KEY_AUTO_NUMBERS, enabled)
 
     fun hapticsEnabled(): Boolean = SecurePrefs.getBoolean(KEY_HAPTICS, true)
     fun setHapticsEnabled(enabled: Boolean) = SecurePrefs.putBoolean(KEY_HAPTICS, enabled)

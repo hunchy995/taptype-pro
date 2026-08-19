@@ -44,6 +44,11 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
 
+            findPreference<SwitchPreferenceCompat>("auto_numbers")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setAutoNumbers(newValue as Boolean)
+                true
+            }
+
             findPreference<SwitchPreferenceCompat>("haptics")?.setOnPreferenceChangeListener { _, newValue ->
                 Settings.setHapticsEnabled(newValue as Boolean)
                 true

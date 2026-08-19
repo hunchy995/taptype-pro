@@ -38,6 +38,12 @@
             app:summary="@string/smart_punctuation_summary"
             app:defaultValue="true" />
 
+        <SwitchPreferenceCompat
+            app:key="auto_numbers"
+            app:title="@string/auto_numbers"
+            app:summary="@string/auto_numbers_summary"
+            app:defaultValue="true" />
+
         <Preference
             app:key="filter_words"
             app:title="@string/filter_words"
