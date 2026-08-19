@@ -7,6 +7,7 @@ object ModelRegistry {
     // Point this to models.aziz.me later when the CDN is ready.
     const val WHISPER_BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
     const val PARAKEET_BASE_URL = "https://huggingface.co/istupakov/parakeet-ctc-0.6b-onnx/resolve/main"
+    const val PUNCT_BASE_URL = "https://huggingface.co/olegphenomenon/bert-restore-punctuation-onnx/resolve/main"
 
     data class Model(
         val id: String,
@@ -65,6 +66,22 @@ object ModelRegistry {
             auxFilename = "vocab.txt",
             auxUrl = "$PARAKEET_BASE_URL/vocab.txt"
         )
+    )
+
+    // Support model — on-device AI punctuation restoration. Deliberately NOT in
+    // `models` (it is not an ASR engine the user picks); loaded automatically by
+    // PunctuationRestorer and downloaded with the same ModelDownloader. `engine` is
+    // a placeholder and unused by the downloader/restorer.
+    val punctuationModel = Model(
+        id = "punct-restore",
+        engine = EngineType.WHISPER,
+        name = "AI Punctuation",
+        sizeMB = 106,
+        description = "BERT punctuation + capitalization restoration (on-device)",
+        filename = "punct_restore.onnx",
+        hfUrl = "$PUNCT_BASE_URL/model_quantized.onnx",
+        auxFilename = "punct_vocab.txt",
+        auxUrl = "$PUNCT_BASE_URL/vocab.txt"
     )
 
     fun forEngine(engine: EngineType): List<Model> = models.filter { it.engine == engine }

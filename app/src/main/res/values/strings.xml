@@ -18,6 +18,8 @@
     <string name="auto_capitalize_summary">Capitalize the first letter of each transcription</string>
     <string name="auto_punctuation">Auto-punctuation</string>
     <string name="auto_punctuation_summary">Add a period at the end if missing</string>
+    <string name="smart_punctuation">AI smart punctuation</string>
+    <string name="smart_punctuation_summary">Restore commas, periods, question marks and capitalization with an on-device AI model (adds a ~106 MB download)</string>
     <string name="haptics">Haptic feedback</string>
     <string name="haptics_summary">Vibrate when recording starts and stops</string>
     <string name="filter_words">Removed leading words</string>

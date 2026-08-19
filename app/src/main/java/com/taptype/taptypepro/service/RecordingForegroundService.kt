@@ -13,6 +13,10 @@ import androidx.core.app.NotificationCompat
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.audio.AudioRecorder
 import com.taptype.taptypepro.engine.EngineManager
+import com.taptype.taptypepro.engine.HomophoneMap
+import com.taptype.taptypepro.engine.ModelRegistry
+import com.taptype.taptypepro.engine.PunctuationRestorer
+import com.taptype.taptypepro.ui.ModelDownloader
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.HistoryEntry
 import com.taptype.taptypepro.util.HistoryStore
@@ -67,6 +71,7 @@ class RecordingForegroundService : Service() {
         createNotificationChannel()
         HistoryStore.init(this)
         Settings.init(this)
+        ensurePunctuationModel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -165,7 +170,7 @@ class RecordingForegroundService : Service() {
                 return
             }
             val text = withContext(transcribeDispatcher) {
-                applyTextSettings(engine.transcribe(samples))
+                finalizeText(engine.transcribe(samples))
             }
             if (text.isBlank()) {
                 DebugLog.w(TAG, "Transcription returned empty text")
@@ -351,6 +356,61 @@ class RecordingForegroundService : Service() {
         )
         val questionTags = setOf("right", "okay", "correct", "yes", "no")
         return first in questionStarters || words.last().trimEnd('?', '.', '!', ',') in questionTags
+    }
+
+    /**
+     * Final-output pipeline: strip hallucinated fillers, fix homophones and dropped
+     * apostrophes, then restore punctuation with the on-device AI model (falling back
+     * to the heuristic rules when the model is unavailable or disabled).
+     */
+    private fun finalizeText(raw: String): String {
+        var text = raw.trim()
+        if (text.isEmpty()) return ""
+
+        text = stripLeadingFillers(text)
+        text = Regex("\\s+").replace(text, " ")
+        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { it.groupValues[1] }
+        text = HomophoneMap.apply(text)
+
+        val hasPunct = Regex("[.!?]").containsMatchIn(text)
+        if (hasPunct) {
+            // Engine already punctuated (e.g. Whisper) — don't double-punctuate.
+            text = fixPunctuationSpacing(text)
+            if (Settings.autoPunctuation()) text = ensureTerminalPunctuation(text)
+        } else if (Settings.autoPunctuation() && Settings.smartPunctuation()) {
+            val punctuated = PunctuationRestorer.punctuate(text)
+            text = if (punctuated.isNotBlank() && punctuated != text) punctuated else applyHeuristicPunctuation(text)
+        } else {
+            text = applyHeuristicPunctuation(text)
+        }
+
+        // Always fix the standalone pronoun "I" (and "i'm"/"i've"/... capitalization).
+        text = Regex("\\bi\\b").replace(text) { "I" }
+        return text.trim()
+    }
+
+    private fun applyHeuristicPunctuation(text: String): String {
+        var t = insertNaturalPunctuation(text)
+        if (Settings.autoCapitalize()) t = capitalizeSentences(t)
+        if (Settings.autoPunctuation()) t = ensureTerminalPunctuation(t)
+        return t
+    }
+
+    /** Ensure the AI punctuation model is downloaded + loaded (background, best-effort). */
+    private fun ensurePunctuationModel() {
+        serviceScope.launch {
+            try {
+                if (PunctuationRestorer.ensureLoaded(this@RecordingForegroundService)) return@launch
+                val model = ModelRegistry.punctuationModel
+                if (!ModelRegistry.modelFile(this@RecordingForegroundService, model).exists()) {
+                    DebugLog.i(TAG, "Downloading AI punctuation model in background")
+                    ModelDownloader.download(this@RecordingForegroundService, model) { }
+                }
+                PunctuationRestorer.ensureLoaded(this@RecordingForegroundService)
+            } catch (e: Exception) {
+                DebugLog.w(TAG, "Punctuation model setup skipped: ${e.message}")
+            }
+        }
     }
 
     private fun checkSilence(chunk: FloatArray) {

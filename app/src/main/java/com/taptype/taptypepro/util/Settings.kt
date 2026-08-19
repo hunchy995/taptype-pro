@@ -10,6 +10,7 @@ object Settings {
     private const val KEY_ORB_SIZE = "orb_size"
     private const val KEY_AUTO_CAPITALIZE = "auto_capitalize"
     private const val KEY_AUTO_PUNCTUATION = "auto_punctuation"
+    private const val KEY_SMART_PUNCTUATION = "smart_punctuation"
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_FILTER_WORDS = "filter_words"
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
@@ -39,6 +40,9 @@ object Settings {
 
     fun autoPunctuation(): Boolean = SecurePrefs.getBoolean(KEY_AUTO_PUNCTUATION, true)
     fun setAutoPunctuation(enabled: Boolean) = SecurePrefs.putBoolean(KEY_AUTO_PUNCTUATION, enabled)
+
+    fun smartPunctuation(): Boolean = SecurePrefs.getBoolean(KEY_SMART_PUNCTUATION, true)
+    fun setSmartPunctuation(enabled: Boolean) = SecurePrefs.putBoolean(KEY_SMART_PUNCTUATION, enabled)
 
     fun hapticsEnabled(): Boolean = SecurePrefs.getBoolean(KEY_HAPTICS, true)
     fun setHapticsEnabled(enabled: Boolean) = SecurePrefs.putBoolean(KEY_HAPTICS, enabled)

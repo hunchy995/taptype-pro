@@ -39,6 +39,11 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
 
+            findPreference<SwitchPreferenceCompat>("smart_punctuation")?.setOnPreferenceChangeListener { _, newValue ->
+                Settings.setSmartPunctuation(newValue as Boolean)
+                true
+            }
+
             findPreference<SwitchPreferenceCompat>("haptics")?.setOnPreferenceChangeListener { _, newValue ->
                 Settings.setHapticsEnabled(newValue as Boolean)
                 true
