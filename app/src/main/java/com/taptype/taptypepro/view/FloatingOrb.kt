@@ -250,8 +250,8 @@ class FloatingOrb(private val context: Context) {
     private fun startRecording() {
         isRecording = true
         pressOut()
-        // Capture the field's current text so live partials stream-replace the
-        // field without clobbering what was already there.
+        // Capture the field's current text so the final transcription replaces the
+        // field (prefix + result) without clobbering what was already there.
         TapTypeAccessibilityService.instance?.beginStreaming()
         // Show the level meter and reset it.
         levelTrack.visibility = View.VISIBLE

@@ -101,14 +101,6 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         orb?.onAudioLevel(rms)
     }
 
-    fun onPartialTranscription(text: String) {
-        // Live partial goes straight into the focused text field in real time
-        // (no floating bubble). Each partial REPLACES the field with prefix + partial.
-        val clean = stripLeadingWords(text)
-        if (clean.isEmpty()) return
-        injectTextReplace(clean, allowPasteFallback = false)
-    }
-
     private fun updateOverlayState() {
         ensureOrb()
         val rootNode = rootInActiveWindow
@@ -161,10 +153,10 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         }
     }
 
-    // Replaces the focused field's content with (prefix + clean). Used for both
-    // live partials and the final injection when a streaming session is active.
-    // For partials we use SET_TEXT only (a blind paste would append and duplicate
-    // text across partials); the final injection may fall back to paste.
+    // Replaces the focused field's content with (prefix + clean). Used for the
+    // final injection when a recording session is active (text is only written
+    // on stop, so the field keeps its pre-dictation text until then). The final
+    // injection may fall back to a clipboard paste if SET_TEXT is unsupported.
     private fun injectTextReplace(clean: String, allowPasteFallback: Boolean) {
         val node = getFreshInputNode() ?: return
         try {
@@ -192,10 +184,9 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         val clean = stripLeadingWords(text)
         if (clean.isEmpty()) return
 
-        // If a streaming session is active, the field already holds the last
-        // partial (prefix + partial). Replace it with prefix + FINAL text rather
-        // than appending, which would duplicate the partial. (streamingPrefix is
-        // reset afterwards in onTranscriptionComplete().)
+        // If a recording session is active, the field still holds the pre-dictation
+        // text (prefix). Replace it with prefix + FINAL text rather than appending.
+        // (streamingPrefix is reset afterwards in onTranscriptionComplete().)
         if (streamingPrefix != null) {
             injectTextReplace(clean, allowPasteFallback = true)
             return

@@ -63,7 +63,6 @@ class RecordingForegroundService : Service() {
     // ONNX Runtime and whisper sessions are NOT safe for concurrent run() calls.
     private val transcribeDispatcher = Dispatchers.IO.limitedParallelism(1)
     private var silenceJob: Job? = null
-    private var partialJob: Job? = null
     private var startTime = 0L
 
     override fun onCreate() {
@@ -108,35 +107,6 @@ class RecordingForegroundService : Service() {
                 }
             }
         }
-
-        // Live partial transcription — injected straight into the focused field
-        // in real time. Runs on the single-thread dispatcher so it never overlaps
-        // the final transcription. The final injected text is still a full-buffer
-        // transcription (which replaces the last partial), so partials never
-        // degrade the final output quality.
-        partialJob = serviceScope.launch {
-            var lastPartialLen = 0
-            while (isRunning) {
-                delay(900)
-                if (!isRunning) break
-                val snap = recorder.snapshot()
-                // Only transcribe if there's meaningful new audio (~1s + 0.4s new).
-                if (snap.size < 16000 || snap.size < lastPartialLen + 6400) continue
-                val engine = withContext(transcribeDispatcher) {
-                    EngineManager.getActiveEngine(this@RecordingForegroundService)
-                }
-                if (engine == null || !engine.isLoaded) continue
-                val partial = withContext(transcribeDispatcher) {
-                    runCatching { applyTextSettings(engine.transcribe(snap)) }.getOrDefault("")
-                }
-                if (partial.isNotBlank()) {
-                    lastPartialLen = snap.size
-                    withContext(Dispatchers.Main) {
-                        TapTypeAccessibilityService.instance?.onPartialTranscription(partial)
-                    }
-                }
-            }
-        }
     }
 
     private var lastLevelPushMs = 0L
@@ -144,7 +114,6 @@ class RecordingForegroundService : Service() {
     private fun stopRecording() {
         if (!isRunning) return
         isRunning = false
-        partialJob?.cancel()
         val samples = recorder.stop()
         silenceJob?.cancel()
         val duration = System.currentTimeMillis() - startTime
@@ -194,41 +163,6 @@ class RecordingForegroundService : Service() {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             TapTypeAccessibilityService.instance?.onTranscriptionComplete()
         }
-    }
-
-    // Smarter post-processing for CTC engines (Parakeet) that output raw
-    // lowercase with no punctuation. Applied after transcription, regardless of engine.
-    private fun applyTextSettings(raw: String): String {
-        var text = raw.trim()
-        if (text.isEmpty()) return ""
-
-        // 1. Strip leading hallucinated fillers (Message, thank you, etc.).
-        text = stripLeadingFillers(text)
-
-        // 2. Fix standalone "i" → "I" (very common CTC lowercase artifact).
-        text = Regex("\\bi\\b").replace(text) { "I" }
-
-        // 3. Normalize whitespace and remove duplicate words that whisper sometimes emits.
-        // (Number words are protected so a year like "twenty twenty six" isn't collapsed.)
-        text = Regex("\\s+").replace(text, " ")
-        text = Regex("\\b(\\w+)\\s+\\1\\b", RegexOption.IGNORE_CASE).replace(text) { m ->
-            if (NumberNormalizer.isNumberWord(m.groupValues[1])) m.value else m.groupValues[1]
-        }
-
-        // 4. Smart punctuation: split run-on speech into sentences/clauses.
-        text = insertNaturalPunctuation(text)
-
-        if (Settings.autoCapitalize()) {
-            text = capitalizeSentences(text)
-        }
-
-        if (Settings.autoPunctuation()) {
-            text = ensureTerminalPunctuation(text)
-        } else {
-            // Even if auto punctuation is disabled, trim trailing junk.
-            text = text.trimEnd { it in ".,!?;:" }
-        }
-        return text.trim()
     }
 
     /** Remove common leading hallucinated tokens (case-insensitive, anchored). */
