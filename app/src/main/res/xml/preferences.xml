@@ -44,6 +44,12 @@
             app:summary="@string/auto_numbers_summary"
             app:defaultValue="true" />
 
+        <SwitchPreferenceCompat
+            app:key="review_uncertain"
+            app:title="@string/review_uncertain"
+            app:summary="@string/review_uncertain_summary"
+            app:defaultValue="true" />
+
         <Preference
             app:key="filter_words"
             app:title="@string/filter_words"

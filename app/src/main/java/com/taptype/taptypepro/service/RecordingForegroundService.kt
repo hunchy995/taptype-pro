@@ -12,11 +12,13 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.audio.AudioRecorder
+import com.taptype.taptypepro.engine.ConfidenceEngine
 import com.taptype.taptypepro.engine.EngineManager
 import com.taptype.taptypepro.engine.HomophoneMap
 import com.taptype.taptypepro.engine.ModelRegistry
 import com.taptype.taptypepro.engine.NumberNormalizer
 import com.taptype.taptypepro.engine.PunctuationRestorer
+import com.taptype.taptypepro.engine.TranscriptionResult
 import com.taptype.taptypepro.ui.ModelDownloader
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.HistoryEntry
@@ -36,6 +38,10 @@ class RecordingForegroundService : Service() {
         private const val TAG = "RecordingService"
         private const val CHANNEL_ID = "taptype_pro_recording"
         private const val NOTIFICATION_ID = 1
+
+        // Words with min-token confidence below this are flagged in the review card.
+        // Tune after real-device feedback.
+        private const val LOW_CONFIDENCE_THRESHOLD = 0.5f
 
         var isRunning = false
             private set
@@ -131,17 +137,23 @@ class RecordingForegroundService : Service() {
 
     private suspend fun transcribeAndInject(samples: FloatArray, duration: Long) {
         try {
-            // Run the final transcription on the single-thread dispatcher so it
-            // never overlaps a partial transcription still in flight.
             val engine = EngineManager.getActiveEngine(this@RecordingForegroundService)
             if (engine == null || !engine.isLoaded) {
                 DebugLog.e(TAG, "No active engine loaded")
                 notifyOrbDone()
                 return
             }
-            val text = withContext(transcribeDispatcher) {
-                finalizeText(engine.transcribe(samples))
+
+            // Transcribe. If the engine reports confidence and the review feature is
+            // on, capture per-word confidence so we can flag uncertain words.
+            val result = withContext(transcribeDispatcher) {
+                if (engine is ConfidenceEngine && Settings.reviewUncertain()) {
+                    engine.transcribeWithConfidence(samples)
+                } else {
+                    TranscriptionResult(engine.transcribe(samples), emptyList())
+                }
             }
+            val text = withContext(transcribeDispatcher) { finalizeText(result.text) }
             if (text.isBlank()) {
                 DebugLog.w(TAG, "Transcription returned empty text")
                 notifyOrbDone()
@@ -149,9 +161,20 @@ class RecordingForegroundService : Service() {
             }
             HistoryStore.add(HistoryEntry(text = text, engine = engine.type.name, model = engine.loadedModelId, durationMs = duration))
 
+            // Words the engine was unsure about (confidence below threshold).
+            val lowWords = result.words
+                .filter { it.probability < LOW_CONFIDENCE_THRESHOLD }
+                .map { it.word.lowercase().trim() }
+                .filter { it.isNotBlank() }
+                .toSet()
+
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                TapTypeAccessibilityService.instance?.injectText(text)
-                TapTypeAccessibilityService.instance?.onTranscriptionComplete()
+                if (Settings.reviewUncertain() && lowWords.isNotEmpty()) {
+                    TapTypeAccessibilityService.instance?.showReview(text, lowWords)
+                } else {
+                    TapTypeAccessibilityService.instance?.injectText(text)
+                    TapTypeAccessibilityService.instance?.onTranscriptionComplete()
+                }
             }
         } catch (e: Exception) {
             DebugLog.e(TAG, "Transcribe/inject failed", e)

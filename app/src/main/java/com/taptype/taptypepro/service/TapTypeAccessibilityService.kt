@@ -3,9 +3,11 @@ package com.taptype.taptypepro.service
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.taptype.taptypepro.ui.ReviewActivity
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.Settings
 import com.taptype.taptypepro.view.FloatingOrb
@@ -15,6 +17,13 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         private const val TAG = "TapTypeAS"
         var instance: TapTypeAccessibilityService? = null
             private set
+
+        // Review-card handoff. ReviewActivity writes the edited text here on
+        // "Paste" (main thread); onAccessibilityEvent consumes it when the target
+        // app regains focus (also main thread). reviewActive gates the orb so it
+        // stays hidden while the review card is on screen.
+        @Volatile var reviewResult: String? = null
+        @Volatile var reviewActive = false
     }
 
     private var orb: FloatingOrb? = null
@@ -39,7 +48,12 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
 
         when (event?.eventType) {
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> updateOverlayState()
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                updateOverlayState()
+                if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                    consumeReviewResult(event)
+                }
+            }
         }
     }
 
@@ -101,8 +115,57 @@ class TapTypeAccessibilityService : android.accessibilityservice.AccessibilitySe
         orb?.onAudioLevel(rms)
     }
 
+    /**
+     * Show the review card instead of pasting directly. Called by the recording
+     * service when the engine flagged low-confidence words. The final injection is
+     * deferred until the card is dismissed and the target app regains focus.
+     */
+    fun showReview(text: String, lowConfWords: Set<String>) {
+        reviewActive = true
+        reviewResult = null
+        orb?.hide()
+        val intent = Intent(this, ReviewActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(ReviewActivity.EXTRA_TEXT, text)
+            putStringArrayListExtra(ReviewActivity.EXTRA_LOW_WORDS, ArrayList(lowConfWords))
+        }
+        try {
+            startActivity(intent)
+            DebugLog.i(TAG, "Review card launched")
+        } catch (e: Exception) {
+            DebugLog.e(TAG, "Failed to launch review card, falling back to direct paste", e)
+            reviewActive = false
+            injectText(text)
+            onTranscriptionComplete()
+        }
+    }
+
+    /**
+     * When the review card closes and focus returns to a window other than our own
+     * package, inject the (possibly edited) text. Handles both paste and cancel.
+     */
+    private fun consumeReviewResult(event: AccessibilityEvent) {
+        if (!reviewActive) return
+        val pkg = event.packageName?.toString() ?: return
+        if (pkg == packageName) return  // still on the review card (our own package)
+
+        reviewActive = false
+        val text = reviewResult
+        reviewResult = null
+        if (text != null && text.isNotBlank()) {
+            injectText(text)
+        }
+        onTranscriptionComplete()
+        updateOverlayState()
+    }
+
     private fun updateOverlayState() {
         ensureOrb()
+        // While the review card is on screen, never show the orb over it.
+        if (reviewActive) {
+            orb?.hide()
+            return
+        }
         val rootNode = rootInActiveWindow
         if (rootNode == null) {
             orb?.hide()

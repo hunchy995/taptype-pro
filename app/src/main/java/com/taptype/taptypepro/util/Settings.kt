@@ -12,6 +12,7 @@ object Settings {
     private const val KEY_AUTO_PUNCTUATION = "auto_punctuation"
     private const val KEY_SMART_PUNCTUATION = "smart_punctuation"
     private const val KEY_AUTO_NUMBERS = "auto_numbers"
+    private const val KEY_REVIEW_UNCERTAIN = "review_uncertain"
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_FILTER_WORDS = "filter_words"
     private const val KEY_BLOCKED_PACKAGES = "blocked_packages"
@@ -48,6 +49,11 @@ object Settings {
     // Convert spoken number words into digits (e.g. "twenty twenty six" -> 2026).
     fun autoNumbers(): Boolean = SecurePrefs.getBoolean(KEY_AUTO_NUMBERS, true)
     fun setAutoNumbers(enabled: Boolean) = SecurePrefs.putBoolean(KEY_AUTO_NUMBERS, enabled)
+
+    // Pop a review card with low-confidence words highlighted so the user can fix
+    // them before the text is pasted (Parakeet only).
+    fun reviewUncertain(): Boolean = SecurePrefs.getBoolean(KEY_REVIEW_UNCERTAIN, true)
+    fun setReviewUncertain(enabled: Boolean) = SecurePrefs.putBoolean(KEY_REVIEW_UNCERTAIN, enabled)
 
     fun hapticsEnabled(): Boolean = SecurePrefs.getBoolean(KEY_HAPTICS, true)
     fun setHapticsEnabled(enabled: Boolean) = SecurePrefs.putBoolean(KEY_HAPTICS, enabled)

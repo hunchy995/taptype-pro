@@ -22,6 +22,8 @@
     <string name="smart_punctuation_summary">Restore commas, periods, question marks and capitalization with an on-device AI model (adds a ~106 MB download)</string>
     <string name="auto_numbers">Numbers as digits</string>
     <string name="auto_numbers_summary">Convert spoken numbers to digits (e.g. "twenty twenty six" → 2026, "forty two" → 42)</string>
+    <string name="review_uncertain">Review uncertain words</string>
+    <string name="review_uncertain_summary">Show an editable card highlighting words the engine is unsure about, so you can fix them before they are pasted</string>
     <string name="haptics">Haptic feedback</string>
     <string name="haptics_summary">Vibrate when recording starts and stops</string>
     <string name="filter_words">Removed leading words</string>
