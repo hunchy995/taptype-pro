@@ -8,6 +8,7 @@ object ModelRegistry {
     const val WHISPER_BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
     const val PARAKEET_BASE_URL = "https://huggingface.co/istupakov/parakeet-ctc-0.6b-onnx/resolve/main"
     const val PUNCT_BASE_URL = "https://huggingface.co/olegphenomenon/bert-restore-punctuation-onnx/resolve/main"
+    const val MLM_BASE_URL = "https://github.com/hunchy995/taptype-pro/releases/download/mlm-v1"
 
     data class Model(
         val id: String,
@@ -82,6 +83,21 @@ object ModelRegistry {
         hfUrl = "$PUNCT_BASE_URL/model_quantized.onnx",
         auxFilename = "punct_vocab.txt",
         auxUrl = "$PUNCT_BASE_URL/vocab.txt"
+    )
+
+    // Support model — on-device masked-language model for contextual word
+    // suggestions in the review card. Not in `models` (not an ASR engine); loaded
+    // by MaskedLMFiller and downloaded with the same ModelDownloader.
+    val maskedLmModel = Model(
+        id = "masked-lm",
+        engine = EngineType.WHISPER,
+        name = "Contextual suggestions",
+        sizeMB = 268,
+        description = "DistilBERT fill-mask for contextual word suggestions (on-device)",
+        filename = "distilbert_mlm.onnx",
+        hfUrl = "$MLM_BASE_URL/distilbert_mlm.onnx",
+        auxFilename = "mlm_vocab.txt",
+        auxUrl = "$MLM_BASE_URL/vocab.txt"
     )
 
     fun forEngine(engine: EngineType): List<Model> = models.filter { it.engine == engine }

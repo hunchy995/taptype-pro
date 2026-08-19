@@ -15,6 +15,7 @@ import com.taptype.taptypepro.audio.AudioRecorder
 import com.taptype.taptypepro.engine.ConfidenceEngine
 import com.taptype.taptypepro.engine.EngineManager
 import com.taptype.taptypepro.engine.HomophoneMap
+import com.taptype.taptypepro.engine.MaskedLMFiller
 import com.taptype.taptypepro.engine.ModelRegistry
 import com.taptype.taptypepro.engine.NumberNormalizer
 import com.taptype.taptypepro.engine.PunctuationRestorer
@@ -78,6 +79,7 @@ class RecordingForegroundService : Service() {
         HistoryStore.init(this)
         Settings.init(this)
         ensurePunctuationModel()
+        ensureMlmModel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -373,6 +375,23 @@ class RecordingForegroundService : Service() {
                 PunctuationRestorer.ensureLoaded(this@RecordingForegroundService)
             } catch (e: Exception) {
                 DebugLog.w(TAG, "Punctuation model setup skipped: ${e.message}")
+            }
+        }
+    }
+
+    /** Ensure the MLM suggestion model is downloaded + loaded (background, best-effort). */
+    private fun ensureMlmModel() {
+        serviceScope.launch {
+            try {
+                if (MaskedLMFiller.ensureLoaded(this@RecordingForegroundService)) return@launch
+                val model = ModelRegistry.maskedLmModel
+                if (!ModelRegistry.modelFile(this@RecordingForegroundService, model).exists()) {
+                    DebugLog.i(TAG, "Downloading MLM suggestion model in background")
+                    ModelDownloader.download(this@RecordingForegroundService, model) { }
+                }
+                MaskedLMFiller.ensureLoaded(this@RecordingForegroundService)
+            } catch (e: Exception) {
+                DebugLog.w(TAG, "MLM model setup skipped: ${e.message}")
             }
         }
     }
