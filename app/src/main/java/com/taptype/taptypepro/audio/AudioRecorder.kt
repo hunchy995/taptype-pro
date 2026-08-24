@@ -11,8 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 class AudioRecorder(private val context: Context) {
     companion object {
@@ -23,8 +21,14 @@ class AudioRecorder(private val context: Context) {
     }
 
     private var audioRecord: AudioRecord? = null
+
+    // 🔴 Must be volatile: read on the IO capture thread, written on the main thread.
+    @Volatile
     private var isRecording = false
+
     private var minBufferSize = 0
+    private var recordedBuffer = FloatArray(0)
+    private val bufferLock = Any()
 
     fun hasPermission(): Boolean {
         return context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -62,12 +66,42 @@ class AudioRecorder(private val context: Context) {
         return true
     }
 
+    /**
+     * Stop capture and return the COMPLETE PCM buffer.
+     *
+     * 🔴 "Eats letters" fix: the old code set `isRecording = false` BEFORE stopping
+     * the hardware, so the read loop exited immediately and any samples still in
+     * AudioRecord's internal buffer were discarded — the tail of the final word got
+     * lost ("mongolian beef" → "mangl"). We now stop the hardware first (which unblocks
+     * the read loop), then drain whatever it already buffered, then release.
+     */
     fun stop(): FloatArray? {
         if (!isRecording) return null
         isRecording = false
-        audioRecord?.stop()
-        audioRecord?.release()
-        val data = recordedBuffer
+
+        val ar = audioRecord
+        ar?.stop()
+
+        // Drain samples the hardware captured but the read loop had not consumed yet.
+        if (ar != null) {
+            val buf = ShortArray(minBufferSize)
+            try {
+                while (true) {
+                    val n = ar.read(buf, 0, buf.size)
+                    if (n <= 0) break
+                    val floats = FloatArray(n)
+                    for (i in 0 until n) floats[i] = buf[i] / 32768.0f
+                    synchronized(bufferLock) { recordedBuffer += floats }
+                }
+            } catch (_: Exception) {
+                // Some devices reject read() after stop(); the buffered data is already
+                // gone on those, so nothing more we can do.
+            }
+            ar.release()
+        }
+        audioRecord = null
+
+        val data = synchronized(bufferLock) { recordedBuffer }
         recordedBuffer = FloatArray(0)
         DebugLog.i(TAG, "Recording stopped, ${data.size} samples")
         return data
@@ -75,27 +109,29 @@ class AudioRecorder(private val context: Context) {
 
     fun isRecording() = isRecording
 
-    private var recordedBuffer = FloatArray(0)
-
     fun recordFlow(): Flow<FloatArray> = flow {
         val buffer = ShortArray(minBufferSize)
         while (isRecording && audioRecord != null) {
             val read = audioRecord!!.read(buffer, 0, buffer.size)
             if (read > 0) {
-                val floats = ShortArray(read).mapIndexed { i, _ -> buffer[i] / 32768.0f }.toFloatArray()
-                recordedBuffer += floats
+                val floats = FloatArray(read)
+                for (i in 0 until read) floats[i] = buffer[i] / 32768.0f
+                synchronized(bufferLock) { recordedBuffer += floats }
                 emit(floats)
             }
         }
     }.flowOn(Dispatchers.IO)
 
     fun currentRms(): Float {
-        if (recordedBuffer.isEmpty()) return 0f
-        val tail = recordedBuffer.takeLast(SAMPLE_RATE / 10)
+        val tail = synchronized(bufferLock) {
+            if (recordedBuffer.isEmpty()) FloatArray(0)
+            else recordedBuffer.copyOfRange(maxOf(0, recordedBuffer.size - SAMPLE_RATE / 10), recordedBuffer.size)
+        }
+        if (tail.isEmpty()) return 0f
         val sumSq = tail.sumOf { (it * it).toDouble() }
         return kotlin.math.sqrt(sumSq / tail.size).toFloat()
     }
 
     /** Snapshot of the accumulated audio so far (for live partial transcription). */
-    fun snapshot(): FloatArray = recordedBuffer.copyOf()
+    fun snapshot(): FloatArray = synchronized(bufferLock) { recordedBuffer.copyOf() }
 }
