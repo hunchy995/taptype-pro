@@ -26,6 +26,30 @@ object PunctuationRestorer {
         ":O", ";O", ":U", "'O", "-O", "?O", "?U"
     )
 
+    // Indices into LABELS for the "no punctuation" variants.
+    private const val LABEL_OU = 0   // no punct, capitalize
+    private const val LABEL_OO = 1   // no punct, keep case
+
+    /**
+     * The model scores every word INDEPENDENTLY, so on a hesitant utterance it happily
+     * ends several consecutive "sentences": "whats your favourite lunch to cook" comes
+     * back as "Whats your favourite? lunch to cook?" (labels ?O … ?O).
+     *
+     * A genuine sentence boundary implies the NEXT word starts a new sentence — which the
+     * model signals with the 'U' case flag. When a word gets a terminal mark but the
+     * following word is not capitalized, the prediction contradicts itself: drop the mark
+     * and keep the casing. Verified against the real int8 model: this removes the spurious
+     * marks while preserving true multi-sentence output ("… the report? Thanks!").
+     */
+    private fun enforceSentenceCoherence(labels: IntArray) {
+        for (i in 0 until labels.size - 1) {
+            val punct = LABELS[labels[i]][0]
+            if (punct != '.' && punct != '!' && punct != '?') continue
+            if (LABELS[labels[i + 1]][1] == 'U') continue      // next word starts a sentence — real boundary
+            labels[i] = if (LABELS[labels[i]][1] == 'U') LABEL_OU else LABEL_OO
+        }
+    }
+
     private var env: OrtEnvironment? = null
     private var session: OrtSession? = null
     private var tokenizer: WordPieceTokenizer? = null
@@ -115,7 +139,9 @@ object PunctuationRestorer {
                 buf.get(flat)
 
                 val numLabels = LABELS.size
-                val out = StringBuilder()
+
+                // Pass 1 — argmax label per word.
+                val labels = IntArray(tok.wordCount)
                 for (wi in 0 until tok.wordCount) {
                     val base = tok.wordStarts[wi] * numLabels
                     var best = 0
@@ -124,7 +150,16 @@ object PunctuationRestorer {
                         val v = flat[base + k]
                         if (v > bestVal) { bestVal = v; best = k }
                     }
-                    val label = LABELS[best]
+                    labels[wi] = best
+                }
+
+                // Pass 2 — drop self-contradicting sentence breaks (see docs above).
+                enforceSentenceCoherence(labels)
+
+                // Pass 3 — rebuild the text.
+                val out = StringBuilder()
+                for (wi in 0 until tok.wordCount) {
+                    val label = LABELS[labels[wi]]
                     val word = words[wi]
                     out.append(if (label[1] == 'U') word.lowercase().replaceFirstChar { it.uppercaseChar() } else word)
                     if (label[0] != 'O') out.append(label[0])

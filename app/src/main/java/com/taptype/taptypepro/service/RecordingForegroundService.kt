@@ -414,6 +414,13 @@ class RecordingForegroundService : Service() {
             text = applyHeuristicPunctuation(text, wasQuestion)
         }
 
+        // Safety net: with Parakeet the punctuation is ADDED above (BERT restorer or the
+        // heuristics), not supplied by the engine, so re-run the repair afterwards too.
+        // A terminator followed by a lowercase word is a self-contradicting sentence
+        // break whatever produced it.
+        text = repairSpuriousBreaks(text).text
+        if (Settings.autoPunctuation()) text = ensureTerminalPunctuation(text, wasQuestion)
+
         // Always fix the standalone pronoun "I" (and "i'm"/"i've"/... capitalization).
         text = Regex("\\bi\\b").replace(text) { "I" }
         return text.trim()

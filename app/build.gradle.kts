@@ -12,8 +12,8 @@ android {
         applicationId = "com.taptype.taptypepro"
         minSdk = 34
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.5.2"
+        versionCode = 9
+        versionName = "1.5.3"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
