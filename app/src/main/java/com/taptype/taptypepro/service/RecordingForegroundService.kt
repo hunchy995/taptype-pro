@@ -296,13 +296,19 @@ class RecordingForegroundService : Service() {
         }
     }
 
-    /** Make sure the final sentence ends with . or ? depending on question detection. */
-    private fun ensureTerminalPunctuation(text: String): String {
+    /**
+     * Make sure the final sentence ends with . or ? depending on question detection.
+     *
+     * [forceQuestion] is set when [repairSpuriousBreaks] removed a '?' from the middle
+     * of the utterance — the engine thought it heard a question, so keep that signal
+     * even if the first word alone doesn't look interrogative.
+     */
+    private fun ensureTerminalPunctuation(text: String, forceQuestion: Boolean = false): String {
         val trimmed = text.trimEnd { it in ".,!?;:" }
         if (trimmed.isEmpty()) return ""
         val lastChar = trimmed.last()
         if (!lastChar.isLetterOrDigit()) return trimmed
-        return trimmed + if (isQuestion(trimmed)) "?" else "."
+        return trimmed + if (forceQuestion || isQuestion(trimmed)) "?" else "."
     }
 
     // Heuristic question detection: first word is a question starter, or the
@@ -310,15 +316,60 @@ class RecordingForegroundService : Service() {
     private fun isQuestion(text: String): Boolean {
         val words = text.trim().lowercase().split(Regex("\\s+"))
         if (words.isEmpty()) return false
-        val first = words.first().trimEnd('?', '.', '!', ',')
+        // Strip the contraction tail so "what's"/"who's"/"how's" still match the
+        // starter list, and so negative contractions ("isn't", "don't") do too.
+        val first = words.first()
+            .trimEnd('?', '.', '!', ',')
+            .substringBefore('\'')
+            .substringBefore('\u2019')
         val questionStarters = setOf(
             "who", "what", "where", "when", "why", "how",
             "is", "are", "was", "were", "do", "does", "did",
             "can", "could", "would", "will", "shall", "should",
-            "may", "might", "have", "has", "had", "am"
+            "may", "might", "have", "has", "had", "am",
+            // negative contractions, post-apostrophe-strip ("isn't" -> "isn")
+            "isn", "aren", "wasn", "weren", "doesn", "didn", "don",
+            "couldn", "wouldn", "shouldn", "won", "haven", "hasn", "hadn"
         )
         val questionTags = setOf("right", "okay", "correct", "yes", "no")
         return first in questionStarters || words.last().trimEnd('?', '.', '!', ',') in questionTags
+    }
+
+    // Words that legitimately carry a period and are followed by lowercase.
+    private val abbreviations = setOf(
+        "mr", "mrs", "ms", "dr", "prof", "st", "vs", "etc", "eg", "ie",
+        "approx", "dept", "est", "jr", "sr", "no", "fig", "al"
+    )
+
+    /**
+     * Drop spurious mid-utterance sentence breaks.
+     *
+     * Whisper punctuates every fluent burst as if it were a complete sentence, so a
+     * hesitant "what's your favourite ... lunch ... to cook" comes back as
+     * "What's your favourite? lunch? to cook?". A genuine sentence boundary from the
+     * engine is always followed by a CAPITAL letter, so a terminator followed by a
+     * lowercase word is the engine breaking one sentence into fragments — remove it.
+     *
+     * Stripping these also makes [finalizeText]'s `hasPunct` guard fall through to the
+     * BERT restorer, which repunctuates the whole utterance with full context instead
+     * of trusting the engine's per-burst guesses.
+     */
+    private data class Repaired(val text: String, val sawQuestionBreak: Boolean)
+
+    private fun repairSpuriousBreaks(text: String): Repaired {
+        var sawQuestion = false
+        val fixed = Regex("([A-Za-z0-9'\u2019]+)([.!?]+)(\\s+)(?=[a-z])").replace(text) { m ->
+            val word = m.groupValues[1].lowercase()
+            // Keep real abbreviations ("etc. something") and single-LETTER initials
+            // ("e.g."), but not digits — "at 3. we agreed" is a spurious break.
+            if (word in abbreviations || (word.length < 2 && word.all { it.isLetter() })) {
+                m.value
+            } else {
+                if (m.groupValues[2].contains('?')) sawQuestion = true
+                m.groupValues[1] + m.groupValues[3]
+            }
+        }
+        return Repaired(Regex("\\s+").replace(fixed, " ").trim(), sawQuestion)
     }
 
     /**
@@ -338,16 +389,29 @@ class RecordingForegroundService : Service() {
         }
         text = HomophoneMap.apply(text)
 
+        // Whisper breaks a hesitant sentence into fragments and punctuates each one
+        // ("What's your favourite? lunch? to cook?"). Repair those before deciding
+        // whether the engine's punctuation can be trusted below.
+        val repaired = repairSpuriousBreaks(text)
+        text = repaired.text
+        val wasQuestion = repaired.sawQuestionBreak
+
         val hasPunct = Regex("[.!?]").containsMatchIn(text)
         if (hasPunct) {
             // Engine already punctuated (e.g. Whisper) — don't double-punctuate.
             text = fixPunctuationSpacing(text)
-            if (Settings.autoPunctuation()) text = ensureTerminalPunctuation(text)
+            if (Settings.autoPunctuation()) text = ensureTerminalPunctuation(text, wasQuestion)
         } else if (Settings.autoPunctuation() && Settings.smartPunctuation()) {
+            // Repairing the breaks above usually lands us here, which is the good path:
+            // the BERT model repunctuates the whole utterance with full context.
             val punctuated = PunctuationRestorer.punctuate(text)
-            text = if (punctuated.isNotBlank() && punctuated != text) punctuated else applyHeuristicPunctuation(text)
+            text = if (punctuated.isNotBlank() && punctuated != text) {
+                if (Settings.autoPunctuation()) ensureTerminalPunctuation(punctuated, wasQuestion) else punctuated
+            } else {
+                applyHeuristicPunctuation(text, wasQuestion)
+            }
         } else {
-            text = applyHeuristicPunctuation(text)
+            text = applyHeuristicPunctuation(text, wasQuestion)
         }
 
         // Always fix the standalone pronoun "I" (and "i'm"/"i've"/... capitalization).
@@ -355,10 +419,10 @@ class RecordingForegroundService : Service() {
         return text.trim()
     }
 
-    private fun applyHeuristicPunctuation(text: String): String {
+    private fun applyHeuristicPunctuation(text: String, forceQuestion: Boolean = false): String {
         var t = insertNaturalPunctuation(text)
         if (Settings.autoCapitalize()) t = capitalizeSentences(t)
-        if (Settings.autoPunctuation()) t = ensureTerminalPunctuation(t)
+        if (Settings.autoPunctuation()) t = ensureTerminalPunctuation(t, forceQuestion)
         return t
     }
 

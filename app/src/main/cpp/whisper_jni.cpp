@@ -143,6 +143,50 @@ static std::string clean_text(std::string s) {
     return s;
 }
 
+// Whisper punctuates each fluent burst as if it were a whole sentence, so a hesitant
+// utterance comes back as "What's your favourite? lunch? to cook?". A genuine sentence
+// boundary is always followed by a CAPITAL letter, so a terminator followed by a
+// lowercase word is a spurious mid-utterance break — drop it. Native backstop for the
+// Kotlin repair, so no downstream code path can bypass it.
+static std::string drop_spurious_breaks(std::string s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); i++) {
+        const char c = s[i];
+        if (c != '.' && c != '!' && c != '?') { out += c; continue; }
+
+        // Span the run of terminators, then the whitespace after it.
+        size_t j = i;
+        while (j < s.size() && (s[j] == '.' || s[j] == '!' || s[j] == '?')) j++;
+        size_t k = j;
+        while (k < s.size() && (s[k] == ' ' || s[k] == '\t')) k++;
+
+        // Length of the word immediately before the terminator (guards initials "e.g.").
+        size_t wlen = 0;
+        bool all_alpha = true;
+        while (wlen < out.size()) {
+            const char p = out[out.size() - 1 - wlen];
+            if (std::isalnum((unsigned char)p) || p == '\'') {
+                if (!std::isalpha((unsigned char)p)) all_alpha = false;
+                wlen++;
+            } else break;
+        }
+        // Single LETTER before the dot is an initial ("e.g.") — keep it. A single
+        // digit ("at 3. we agreed") is a spurious break — drop it.
+        const bool is_initial = (wlen == 1 && all_alpha);
+
+        const bool spaced = k > j;
+        if (spaced && k < s.size() && std::islower((unsigned char)s[k]) && wlen >= 1 && !is_initial) {
+            out += ' ';       // drop the terminator, keep the word separation
+            i = k - 1;
+            continue;
+        }
+        out.append(s, i, j - i);   // legitimate boundary — keep it
+        i = j - 1;
+    }
+    return out;
+}
+
 
 extern "C" {
 
@@ -222,7 +266,7 @@ Java_com_taptype_taptypepro_engine_WhisperEngine_nativeTranscribe(
             result += text;
         }
     }
-    result = clean_text(result);
+    result = drop_spurious_breaks(clean_text(result));
     return env->NewStringUTF(result.c_str());
 }
 
