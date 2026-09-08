@@ -3,6 +3,7 @@ package com.taptype.taptypepro.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
@@ -13,6 +14,7 @@ import androidx.preference.SwitchPreferenceCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.util.Settings
+import com.taptype.taptypepro.util.WindowInsetsHelper
 
 class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,6 +92,15 @@ class SettingsActivity : AppCompatActivity() {
             recycler.setPadding(horizontal, 0, horizontal, 0)
             recycler.clipToPadding = false
             return recycler
+        }
+
+        /**
+         * Apply system-bar insets (status bar + nav bar) as vertical padding so the
+         * list doesn't bleed under them on Android 15 edge-to-edge.
+         */
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+            super.onViewCreated(view, savedInstanceState)
+            WindowInsetsHelper.apply(view)
         }
 
         private fun showFilterWordsDialog() {

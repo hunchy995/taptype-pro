@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.taptype.taptypepro.databinding.ActivityHistoryBinding
 import com.taptype.taptypepro.util.HistoryStore
+import com.taptype.taptypepro.util.WindowInsetsHelper
 
 class HistoryActivity : AppCompatActivity() {
     private lateinit var binding: ActivityHistoryBinding
@@ -16,6 +17,7 @@ class HistoryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsHelper.apply(binding.root)
 
         adapter = HistoryAdapter(HistoryStore.load())
         binding.historyList.layoutManager = LinearLayoutManager(this)

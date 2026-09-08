@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.databinding.ActivityBlockedAppsBinding
 import com.taptype.taptypepro.util.Settings
+import com.taptype.taptypepro.util.WindowInsetsHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,6 +33,7 @@ class BlockedAppsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityBlockedAppsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsHelper.apply(binding.root)
 
         supportActionBar?.title = getString(R.string.blocked_apps_title)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)

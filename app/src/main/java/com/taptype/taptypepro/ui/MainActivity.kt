@@ -17,6 +17,7 @@ import com.taptype.taptypepro.engine.ModelRegistry
 import com.taptype.taptypepro.util.DebugLog
 import com.taptype.taptypepro.util.HistoryStore
 import com.taptype.taptypepro.util.Settings
+import com.taptype.taptypepro.util.WindowInsetsHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,6 +34,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsHelper.apply(binding.root)
 
         Settings.init(this)
         HistoryStore.init(this)

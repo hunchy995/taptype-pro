@@ -6,6 +6,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.taptype.taptypepro.databinding.ActivityDebugLogBinding
 import com.taptype.taptypepro.util.DebugLog
+import com.taptype.taptypepro.util.WindowInsetsHelper
 
 class DebugLogActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDebugLogBinding
@@ -14,6 +15,7 @@ class DebugLogActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityDebugLogBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        WindowInsetsHelper.apply(binding.root)
 
         refreshLog()
 

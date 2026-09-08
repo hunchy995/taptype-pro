@@ -24,6 +24,7 @@ import com.taptype.taptypepro.R
 import com.taptype.taptypepro.engine.MaskedLMFiller
 import com.taptype.taptypepro.service.TapTypeAccessibilityService
 import com.taptype.taptypepro.util.DebugLog
+import com.taptype.taptypepro.util.WindowInsetsHelper
 
 /**
  * A lightweight "review before paste" card. Shown after dictation when the engine
@@ -48,7 +49,9 @@ class ReviewActivity : Activity() {
         super.onCreate(savedInstanceState)
         val text = intent.getStringExtra(EXTRA_TEXT) ?: ""
         lowWords = intent.getStringArrayListExtra(EXTRA_LOW_WORDS)?.toSet() ?: emptySet()
-        setContentView(buildLayout(text))
+        val root = buildLayout(text)
+        setContentView(root)
+        WindowInsetsHelper.apply(root)
         DebugLog.i(TAG, "Review card shown: ${lowWords.size} low-confidence words")
     }
 
