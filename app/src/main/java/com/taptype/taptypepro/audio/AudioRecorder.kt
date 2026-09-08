@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class AudioRecorder(private val context: Context) {
     companion object {
@@ -29,6 +31,10 @@ class AudioRecorder(private val context: Context) {
     private var minBufferSize = 0
     private var recordedBuffer = FloatArray(0)
     private val bufferLock = Any()
+
+    // Set when the capture loop has fully exited (read() unblocked and returned).
+    // stop() waits on this so it never drains/releases while the loop is mid-read.
+    private var captureDone = CountDownLatch(1)
 
     fun hasPermission(): Boolean {
         return context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -62,6 +68,7 @@ class AudioRecorder(private val context: Context) {
 
         audioRecord?.startRecording()
         isRecording = true
+        captureDone = CountDownLatch(1)
         DebugLog.i(TAG, "Recording started")
         return true
     }
@@ -69,18 +76,29 @@ class AudioRecorder(private val context: Context) {
     /**
      * Stop capture and return the COMPLETE PCM buffer.
      *
-     * 🔴 "Eats letters" fix: the old code set `isRecording = false` BEFORE stopping
-     * the hardware, so the read loop exited immediately and any samples still in
-     * AudioRecord's internal buffer were discarded — the tail of the final word got
-     * lost ("mongolian beef" → "mangl"). We now stop the hardware first (which unblocks
-     * the read loop), then drain whatever it already buffered, then release.
+     * 🔴 "Eats last words" fix. Two failure modes were dropping the tail:
+     *
+     *  1. RACE: the old code called `ar.stop()` + `ar.release()` while the capture
+     *     loop was still blocked inside `read()`. On many devices `release()` while
+     *     a `read()` is in flight either throws or silently discards the samples the
+     *     hardware had already captured — the final word's tail vanished.
+     *
+     *  2. NO TRAILING SILENCE: Parakeet is a CTC model. If the audio ends exactly on
+     *     the last word with no trailing silence, the decoder has no blank frames to
+     *     flush the final token, so the last word (or its last syllable) is dropped.
+     *
+     *  Fix: signal the loop to stop, WAIT for it to fully exit (so no read() is in
+     *  flight), then drain whatever the hardware still buffered, then append a short
+     *  tail of digital silence so the CTC decoder can flush its final token.
      */
     fun stop(): FloatArray? {
         if (!isRecording) return null
         isRecording = false
 
         val ar = audioRecord
-        ar?.stop()
+        // Unblock the capture loop's read() and wait for it to finish cleanly.
+        try { ar?.stop() } catch (_: Exception) {}
+        try { captureDone.await(500, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) {}
 
         // Drain samples the hardware captured but the read loop had not consumed yet.
         if (ar != null) {
@@ -97,28 +115,42 @@ class AudioRecorder(private val context: Context) {
                 // Some devices reject read() after stop(); the buffered data is already
                 // gone on those, so nothing more we can do.
             }
-            ar.release()
+            try { ar.release() } catch (_: Exception) {}
         }
         audioRecord = null
 
         val data = synchronized(bufferLock) { recordedBuffer }
         recordedBuffer = FloatArray(0)
-        DebugLog.i(TAG, "Recording stopped, ${data.size} samples")
-        return data
+
+        // Append a short tail of digital silence (~300ms) so the CTC decoder has
+        // blank frames to flush the final token. Without this, audio that ends
+        // exactly on the last word loses its final syllable/word.
+        val silence = FloatArray(SAMPLE_RATE * 3 / 10)
+        val withTail = FloatArray(data.size + silence.size)
+        System.arraycopy(data, 0, withTail, 0, data.size)
+        System.arraycopy(silence, 0, withTail, data.size, silence.size)
+
+        DebugLog.i(TAG, "Recording stopped, ${data.size} samples (+${silence.size} silence)")
+        return withTail
     }
 
     fun isRecording() = isRecording
 
     fun recordFlow(): Flow<FloatArray> = flow {
         val buffer = ShortArray(minBufferSize)
-        while (isRecording && audioRecord != null) {
-            val read = audioRecord!!.read(buffer, 0, buffer.size)
-            if (read > 0) {
-                val floats = FloatArray(read)
-                for (i in 0 until read) floats[i] = buffer[i] / 32768.0f
-                synchronized(bufferLock) { recordedBuffer += floats }
-                emit(floats)
+        try {
+            while (isRecording && audioRecord != null) {
+                val read = audioRecord!!.read(buffer, 0, buffer.size)
+                if (read > 0) {
+                    val floats = FloatArray(read)
+                    for (i in 0 until read) floats[i] = buffer[i] / 32768.0f
+                    synchronized(bufferLock) { recordedBuffer += floats }
+                    emit(floats)
+                }
             }
+        } finally {
+            // Signal stop() that the loop has fully exited — no read() is in flight.
+            captureDone.countDown()
         }
     }.flowOn(Dispatchers.IO)
 
