@@ -2,12 +2,15 @@ package com.taptype.taptypepro.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.taptype.taptypepro.R
 import com.taptype.taptypepro.util.Settings
 
@@ -68,6 +71,25 @@ class SettingsActivity : AppCompatActivity() {
                 startActivity(Intent(requireContext(), BlockedAppsActivity::class.java))
                 true
             }
+        }
+
+        /**
+         * Add horizontal safe-area padding to the preference list.
+         *
+         * PreferenceFragmentCompat renders its RecyclerView flush against the screen
+         * edges, so toggle switches and the floating-button preview were clipped by the
+         * display border. Material Design's standard list inset is 16dp on each side.
+         */
+        override fun onCreateRecyclerView(
+            inflater: LayoutInflater,
+            parent: ViewGroup,
+            savedInstanceState: Bundle?
+        ): RecyclerView {
+            val recycler = super.onCreateRecyclerView(inflater, parent, savedInstanceState)
+            val horizontal = (16 * resources.displayMetrics.density).toInt()
+            recycler.setPadding(horizontal, 0, horizontal, 0)
+            recycler.clipToPadding = false
+            return recycler
         }
 
         private fun showFilterWordsDialog() {
